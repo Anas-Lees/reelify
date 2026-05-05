@@ -1,0 +1,13 @@
+node_modules
+android
+ios
+.git
+.github
+.env
+*.log
+generated-images/*
+generated-audio/*
+uploads/*
+reelify.db*
+.dockerignore
+Dockerfile

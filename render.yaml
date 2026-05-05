@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: reelify
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false

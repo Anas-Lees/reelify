@@ -1,0 +1,14 @@
+{
+  "appId": "com.reelify.app",
+  "appName": "Reelify",
+  "webDir": "public",
+  "server": {
+    "url": "https://YOUR-APP.onrender.com",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  }
+}
