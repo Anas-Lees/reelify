@@ -1,120 +1,93 @@
-# Build & install the Android app
+# Reelify — Phone build & deploy
 
-After this, your phone runs Reelify standalone — your laptop is never in the loop.
+After this, your phone runs Reelify standalone. Your laptop is never in the loop again.
 
-You'll need:
-- **GitHub account** (free)
-- **Render account** (free, no credit card)
-- ~15 minutes total
+**Hosting research outcome (May 2026):** I checked Netlify, Fly.io, Koyeb, Railway, Northflank. Verdict: **Render is still the only "real" free tier left** that runs a persistent Express+SQLite server. Netlify is serverless-only (60s function cap, no state) — fundamentally can't run our backend. Fly.io and Koyeb killed their free tiers in 2024–2025. We're staying on Render.
 
 ---
 
-## Step 1 · Push this project to GitHub
+## Current state
 
-1. Create a new GitHub repo (any name, public or private).
-2. From this folder, push the code:
+✅ Repo created: **https://github.com/Anas-Lees/reelify**
+✅ All code pushed (minus the workflow file — that one needs an extra GitHub permission, see below)
+✅ `Dockerfile`, `render.yaml`, `capacitor.config.json`, full `android/` project all committed
+
+---
+
+## What's left — 3 things you do, ~10 minutes total
+
+### 1. Grant `workflow` scope to gh CLI (30 sec)
+
+GitHub blocks pushing files to `.github/workflows/*` unless your CLI token has the `workflow` scope. Run this **once** in any terminal:
 
 ```bash
-git init
-git add .
-git commit -m "Reelify"
-git branch -M main
-git remote add origin https://github.com/YOUR_USER/YOUR_REPO.git
-git push -u origin main
+gh auth refresh -h github.com -s workflow
 ```
 
-> Don't worry — `.gitignore` already excludes `.env`, `node_modules/`, `reelify.db`, and the heavy `android/` build folders. Your API key won't get pushed.
+It opens your browser, you click "Authorize," done. Tell me when it's done and I'll push the workflow file from this session.
+
+> Alternative if you want to skip the CLI step: open https://github.com/Anas-Lees/reelify in the browser, click **Add file → Create new file**, name it `.github/workflows/build-apk.yml` and paste the contents of the local `.github/workflows/build-apk.yml` file. Same result.
+
+### 2. Deploy the backend to Render
+
+**One-click deploy URL** (uses the `render.yaml` Blueprint):
+
+👉 **https://render.com/deploy?repo=https://github.com/Anas-Lees/reelify**
+
+Click that, sign in with GitHub, then:
+- Render reads `render.yaml`, proposes a "reelify" web service.
+- It'll ask for the `GEMINI_API_KEY` env var — paste your key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+- Click **Apply**. First build takes ~3-5 minutes (Docker).
+- When green, copy the public URL (looks like `https://reelify-xxxx.onrender.com`).
+- **Send me that URL** and I'll do the rest.
+
+### 3. (After you tell me the URL) — I trigger the APK build
+
+Once you give me the Render URL, I'll:
+- Trigger the GitHub Actions workflow with `gh workflow run` and your URL.
+- Wait for the build (~3-5 min).
+- Download the APK with `gh run download`.
+- Place it at `E:\webappgrad\reelify-debug-apk.zip` so you can pull it off this machine, or ZIP it and tell you exactly where.
+
+You then sideload it on your S24:
+- Email yourself `app-debug.apk` or drop in Drive.
+- Tap to install. Allow unknown sources for the source app when prompted.
+- Samsung Auto Blocker may intercept — temporarily disable in Settings → Security and privacy → Auto Blocker, install, then re-enable.
 
 ---
 
-## Step 2 · Deploy the backend to Render (free)
+## iOS (later, when you have a Mac)
 
-The backend serves both the Express API and the web UI. The phone will load everything from there.
-
-1. Sign up at [render.com](https://render.com) (GitHub login is fine).
-2. Click **New → Blueprint**.
-3. Connect your GitHub repo. Render reads the `render.yaml` we already added and proposes a "reelify" web service.
-4. **Set the environment variable** when prompted:
-   - `GEMINI_API_KEY` = your Gemini key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-5. Click **Apply**. First deploy takes ~3–5 min (Docker build).
-6. When it's live, copy the public URL — looks like `https://reelify-xxxx.onrender.com`.
-7. Open that URL in any browser to confirm the web UI loads. Try uploading a file. If reels generate, the backend is good.
-
-> **Heads up — Render free tier sleeps after 15 min of no traffic.** First request after sleep takes ~30–60 seconds. After that it's fast. The data stays.
-
----
-
-## Step 3 · Build the APK in the cloud (no Android Studio needed)
-
-I added a GitHub Actions workflow at `.github/workflows/build-apk.yml`. It builds a real `.apk` on GitHub's runners.
-
-1. In your GitHub repo, click **Actions** tab.
-2. Pick **"Build Android APK"** in the left sidebar.
-3. Click **Run workflow** (top right).
-4. In the **Backend URL** field, paste your Render URL: `https://reelify-xxxx.onrender.com`
-5. Click **Run workflow**.
-6. Wait ~3–5 minutes for green checkmark.
-7. Click into the run, scroll to **Artifacts** at the bottom, download `reelify-debug-apk.zip`.
-8. Unzip it — inside is `app-debug.apk`.
-
----
-
-## Step 4 · Install on your Galaxy S24
-
-Easiest way: **email or Drive transfer**.
-
-1. Email the `app-debug.apk` to yourself, or drop it into Google Drive / OneDrive.
-2. On the S24, open the email/Drive and tap the APK.
-3. Android will prompt: "Install unknown apps from this source?" → tap **Settings** → enable for that source → go back → **Install**.
-4. Reelify icon appears on your home screen. Tap it.
-
-> Samsung's "Auto Blocker" (Settings → Security and privacy) blocks sideloads by default on newer One UI builds. If install fails, **temporarily disable Auto Blocker**, install the APK, then re-enable. The app keeps working.
-
-If you prefer USB:
-- Enable **Developer options** on the S24 (tap Build number 7 times).
-- Enable **USB debugging**.
-- Plug into laptop, run `adb install app-debug.apk` (Android Platform Tools).
-
----
-
-## Step 5 · iOS (later, when you have a Mac)
-
-iOS build needs macOS + Xcode — Apple toolchain doesn't run on Windows or in GitHub-free runners (without paid macOS minutes).
-
-When you have a Mac:
+iOS build needs macOS + Xcode — Apple-only. When you have a Mac:
 
 ```bash
+git clone https://github.com/Anas-Lees/reelify.git
+cd reelify
 npm install
 npx cap add ios
 npx cap sync ios
 npx cap open ios
 ```
 
-Xcode opens. Plug in iPhone, sign with your Apple ID (free Personal team works for sideload — apps expire every 7 days). Hit **Run**.
+Xcode opens. Plug in iPhone, sign with your Apple ID (free Personal team works for sideload — apps expire every 7 days), hit **Run**.
 
-For permanent iOS install (no 7-day expiry), you need a paid Apple Developer account ($99/yr). Or use [Codemagic](https://codemagic.io) free tier (500 build min/mo) to build IPAs in the cloud.
+For permanent iOS install (no 7-day expiry), paid Apple Developer ($99/yr) or [Codemagic](https://codemagic.io) free cloud builds (500 min/mo).
 
 ---
 
 ## How updates work
 
-The APK is a thin shell that loads the deployed URL. **You never need to rebuild the APK to update the app.**
+The APK is a thin shell that loads from your Render URL. **You never need to rebuild the APK to update the app.**
 
-- Want to change a button? Edit `public/styles.css`, push to GitHub, Render auto-redeploys (~2 min). Open the app on the phone — the new look is there.
-- Only rebuild the APK if you change the Capacitor config itself (e.g. a different backend URL).
+- Edit `public/styles.css`, `public/app.js`, `server.js` → push to GitHub → Render auto-deploys → next time you open the app on your phone, it's the new version.
+- Only rebuild the APK if you change `capacitor.config.json` itself.
 
 ---
 
-## Troubleshooting
+## If your library/saved data disappears
 
-**"Server unavailable" or blank screen on first launch**
-Render is waking from sleep. Wait 30–60s, pull-to-refresh.
+Render free containers occasionally restart and wipe their internal disk (sleep ≠ wipe; but redeploys and rare resets do wipe). To make data permanent:
+- **Easy:** add Postgres on [neon.tech](https://neon.tech) free tier (1GB), I'll migrate the SQLite layer.
+- **Easier-but-paid:** $1/mo Render persistent disk.
 
-**App works but uploads fail**
-Check the Render logs (Render dashboard → service → Logs tab). Most common: `GEMINI_API_KEY` env var missing or quota exhausted.
-
-**APK build fails in Actions**
-Click into the failed run, expand the "Build debug APK" step. Most common: out-of-disk on the runner — re-running usually works.
-
-**Library/saved chapters disappeared**
-Render's free Docker container occasionally restarts and wipes ephemeral disk. To make data permanent: switch to Postgres (free 1GB on [neon.tech](https://neon.tech)) or pay $1/mo for a Render persistent disk. Tell me and I'll wire it up.
+Tell me which when you want it and I'll wire it.
