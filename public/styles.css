@@ -63,20 +63,23 @@ img, svg { -webkit-user-drag: none; }
 .screen.active { display: flex; }
 #upload-screen.active {
   align-items: flex-start;
-  padding-top: max(24px, env(safe-area-inset-top, 0));
-  padding-bottom: max(40px, env(safe-area-inset-bottom, 0));
+  padding: 0;
 }
 
-/* ----- UPLOAD ----- */
+/* ----- UPLOAD — phone-native, edge-to-edge (no document-card vibe) ----- */
 .upload-card {
   width: 100%;
-  max-width: 460px;
-  background: linear-gradient(160deg, #1a1a22 0%, #0e0e14 100%);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: var(--radius);
-  padding: 28px;
+  max-width: none;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: max(28px, calc(env(safe-area-inset-top, 0) + 20px)) 22px max(40px, env(safe-area-inset-bottom, 0));
   text-align: center;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+}
+@media (min-width: 720px) {
+  /* On tablet/desktop only, re-center as a column so it doesn't look stretched */
+  .upload-card { max-width: 520px; margin: 0 auto; }
 }
 .logo {
   display: flex;
@@ -904,6 +907,14 @@ h1 {
   margin-bottom: 8px;
 }
 .top-bar .ghost-btn { padding: 6px 12px; }
+.top-bar-right { display: inline-flex; gap: 6px; }
+.ghost-btn.icon-only { padding: 6px 10px; }
+.ghost-btn.icon-only .ge-icon { font-size: 16px; }
+
+/* Voice B row only visible in podcast mode; voice "A" suffix only in podcast */
+body[data-format="solo"] .voice-b-row { display: none; }
+body[data-format="solo"] .voice-a-suffix { display: none; }
+body[data-format="podcast"] .voice-b-row { display: flex; flex-direction: column; gap: 6px; }
 
 /* ----- Library modal ----- */
 .library-card { max-width: 560px; }
@@ -2828,3 +2839,27 @@ body[data-ui-theme="pastel"][data-app-theme="dark"] .new-subject-form input { ba
 body[data-ui-theme="pastel"][data-app-theme="dark"] .toast { background: #3a2d28; border-color: #5a4a44; color: #ffe9d0; }
 body[data-ui-theme="pastel"][data-app-theme="dark"] .ra-icon { background: #3a2d28; color: #ffe9d0; border-color: #5a4a44; box-shadow: 0 3px 0 #2a1f1c; }
 body[data-ui-theme="pastel"][data-app-theme="dark"] .cu-custom-input { background: #2a1f1c; border-color: #5a4a44; color: #ffe9d0; }
+
+/* =================================================================
+   Phone-native: upload screen is ALWAYS edge-to-edge.
+   No theme gets to draw a card-on-page document chrome on the upload
+   screen — the theme's page-bg fills the whole viewport and content
+   sits directly on it. (Modals can still be cards.)
+   ================================================================= */
+.upload-card,
+body[data-ui-theme="default"] .upload-card,
+body[data-ui-theme="editorial"] .upload-card,
+body[data-ui-theme="glass"] .upload-card,
+body[data-ui-theme="riso"] .upload-card,
+body[data-ui-theme="pastel"] .upload-card {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.screen { padding: 0; }
+#upload-screen.active {
+  align-items: flex-start;
+  padding: 0;
+}

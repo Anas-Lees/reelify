@@ -24,9 +24,14 @@
             <span class="ge-icon">📚</span>
             <span class="ge-text" data-i18n="library">Library</span>
           </button>
-          <button id="settingsBtn" class="ghost-btn" type="button" aria-label="Settings">
-            <span class="ge-icon">⚙</span>
-          </button>
+          <div class="top-bar-right">
+            <button id="surpriseBtn" class="ghost-btn icon-only" type="button" aria-label="Surprise me">
+              <span class="ge-icon">🎲</span>
+            </button>
+            <button id="settingsBtn" class="ghost-btn icon-only" type="button" aria-label="Settings">
+              <span class="ge-icon">⚙</span>
+            </button>
+          </div>
         </div>
         <div class="logo">
           <span class="dot"></span>
@@ -145,8 +150,29 @@
               placeholder="e.g. Pirate English, Old English, Shakespearean" />
           </div>
           <div class="cu-row">
-            <div class="cu-label" data-i18n="label_voice">Voice</div>
+            <div class="cu-label" data-i18n="label_format">Format</div>
+            <div class="cu-chips" data-name="format">
+              <button class="cu-chip" data-val="solo" data-i18n="format_solo">🎤 Solo</button>
+              <button class="cu-chip" data-val="podcast" data-i18n="format_podcast">🎙 Podcast (2 voices)</button>
+            </div>
+          </div>
+          <div class="cu-row">
+            <div class="cu-label">
+              <span data-i18n="label_voice">Voice</span><span class="voice-a-suffix" data-i18n="voice_a_suffix"> A</span>
+            </div>
             <div class="cu-chips" data-name="voiceOverride">
+              <button class="cu-chip" data-val="auto" data-i18n="voice_auto">🤖 AI picks</button>
+              <button class="cu-chip" data-val="Aoede">🌿 Aoede</button>
+              <button class="cu-chip" data-val="Puck">🎈 Puck</button>
+              <button class="cu-chip" data-val="Charon">🌊 Charon</button>
+              <button class="cu-chip" data-val="Kore">⛰ Kore</button>
+              <button class="cu-chip" data-val="Leda">☀ Leda</button>
+              <button class="cu-chip" data-val="Fenrir">🔥 Fenrir</button>
+            </div>
+          </div>
+          <div class="cu-row voice-b-row">
+            <div class="cu-label"><span data-i18n="label_voice">Voice</span> B</div>
+            <div class="cu-chips" data-name="voiceB">
               <button class="cu-chip" data-val="auto" data-i18n="voice_auto">🤖 AI picks</button>
               <button class="cu-chip" data-val="Aoede">🌿 Aoede</button>
               <button class="cu-chip" data-val="Puck">🎈 Puck</button>

@@ -111,13 +111,17 @@ function buildReelPrompt(settings) {
     ? `LANGUAGE: write all titles, narration, quiz questions, options, and explanations in ${langCustom}. If that language/dialect isn't natively supported, do your best approximation and stay consistent.`
     : (LANGUAGE_INSTR[settings.language] || LANGUAGE_INSTR.en);
 
+  const podcastInstr = settings.format === "podcast"
+    ? `\n- FORMAT — PODCAST DIALOGUE: Write each reel's "narration" as a back-and-forth dialogue between TWO co-hosts. Tag every line strictly with [A]: or [B]: at the start (e.g. "[A]: Welcome back!\\n[B]: Today we're talking..."). Alternate hosts naturally — short conversational turns of 5-15 words each, with chemistry: react to each other, agree/push back, light banter. Together they cover the topic. Total length 50-110 words combined. No stage directions, no quote marks.`
+    : "";
+
   return `You are an AI that turns documents into a series of short-form video reels (Instagram Reels / TikTok style) for learning and entertainment, plus a final quiz.
 
 USER PREFERENCES — HONOR THESE:
 - ${lang}
 - ${vibe}
 - ${len}
-- ${quiz}
+- ${quiz}${podcastInstr}
 
 Carefully analyze the attached content and extract EVERY meaningful piece of information. Then organize it into reels.
 
@@ -213,6 +217,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
       vibeCustom: req.body.vibeCustom,
       quizDifficultyCustom: req.body.quizDifficultyCustom,
       languageCustom: req.body.languageCustom,
+      format: req.body.format,
     };
 
     const userParts = [{ text: buildReelPrompt(settings) }];
@@ -369,14 +374,52 @@ function pcmToWav(pcmBuf, sampleRate = 24000, channels = 1, bitsPerSample = 16) 
 
 const ALLOWED_VOICES = new Set(["Aoede", "Puck", "Charon", "Kore", "Leda", "Fenrir", "Orus", "Zephyr"]);
 
+// Generate TTS for one text + voice. Returns { pcm, sampleRate }.
+async function ttsOneSegment(text, voice) {
+  const styled = `Read the following aloud in an engaging, upbeat narrator voice. Do not add anything else.\n\n${text}`;
+  const result = await ai.models.generateContent({
+    model: TTS_MODEL,
+    contents: [{ parts: [{ text: styled }] }],
+    config: {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+      },
+    },
+  });
+  const audioPart = result?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+  if (!audioPart) throw new Error("No audio data in TTS response");
+  const pcm = Buffer.from(audioPart.inlineData.data, "base64");
+  const mime = audioPart.inlineData.mimeType || "audio/L16;rate=24000";
+  const rateMatch = mime.match(/rate=(\d+)/i);
+  return { pcm, sampleRate: rateMatch ? parseInt(rateMatch[1], 10) : 24000 };
+}
+
+// Parse a podcast script split into [A]: / [B]: turns.
+// Returns array of { speaker: "A"|"B", text: "..." }.
+function parsePodcastTurns(text) {
+  const re = /\[([AB])\]\s*:?\s*([\s\S]*?)(?=(?:\[[AB]\]\s*:?)|$)/g;
+  const turns = [];
+  let m;
+  while ((m = re.exec(text))) {
+    const t = m[2].trim();
+    if (t) turns.push({ speaker: m[1], text: t });
+  }
+  return turns;
+}
+
 app.post("/api/tts", async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, format } = req.body;
     let voice = req.body.voice || TTS_VOICE;
+    let voiceB = req.body.voiceB || "Charon";
     if (!ALLOWED_VOICES.has(voice)) voice = TTS_VOICE;
+    if (!ALLOWED_VOICES.has(voiceB)) voiceB = "Charon";
     if (!text) return res.status(400).json({ error: "Missing text" });
 
-    const hash = crypto.createHash("md5").update(text + "|" + voice).digest("hex").slice(0, 16);
+    const isPodcast = format === "podcast";
+    const cacheKey = `${text}|${voice}|${isPodcast ? `pod|${voiceB}` : "solo"}`;
+    const hash = crypto.createHash("md5").update(cacheKey).digest("hex").slice(0, 16);
     const filename = `tts_${hash}.wav`;
     const filepath = path.join(audioDir, filename);
 
@@ -384,30 +427,32 @@ app.post("/api/tts", async (req, res) => {
       return res.json({ url: `/audio/${filename}`, cached: true });
     }
 
-    // Prefix with a styling instruction so the TTS model treats the input
-    // as a transcript to read aloud (avoids "tried to generate text" errors on short inputs).
-    const styled = `Read the following aloud in an engaging, upbeat narrator voice. Do not add anything else.\n\n${text}`;
+    let pcmBuffer;
+    let sampleRate = 24000;
 
-    const result = await ai.models.generateContent({
-      model: TTS_MODEL,
-      contents: [{ parts: [{ text: styled }] }],
-      config: {
-        responseModalities: ["AUDIO"],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voice },
-          },
-        },
-      },
-    });
-
-    const audioPart = result?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
-    if (!audioPart) throw new Error("No audio data in TTS response");
-
-    const pcmBuffer = Buffer.from(audioPart.inlineData.data, "base64");
-    const mime = audioPart.inlineData.mimeType || "audio/L16;rate=24000";
-    const rateMatch = mime.match(/rate=(\d+)/i);
-    const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+    if (isPodcast) {
+      // Try to parse turns. If the model didn't tag, fall back to alternating split by sentence.
+      let turns = parsePodcastTurns(text);
+      if (turns.length < 2) {
+        const sentences = text.split(/(?<=[.!?])\s+/).filter((s) => s.trim());
+        turns = sentences.map((s, i) => ({ speaker: i % 2 === 0 ? "A" : "B", text: s.trim() }));
+      }
+      const pcmParts = [];
+      for (const turn of turns) {
+        const v = turn.speaker === "A" ? voice : voiceB;
+        const { pcm, sampleRate: sr } = await ttsOneSegment(turn.text, v);
+        sampleRate = sr;
+        pcmParts.push(pcm);
+        // 180ms silence between turns so the dialogue feels conversational
+        const silenceBytes = Math.floor(sampleRate * 0.18) * 2;
+        pcmParts.push(Buffer.alloc(silenceBytes));
+      }
+      pcmBuffer = Buffer.concat(pcmParts);
+    } else {
+      const seg = await ttsOneSegment(text, voice);
+      pcmBuffer = seg.pcm;
+      sampleRate = seg.sampleRate;
+    }
 
     const wavBuffer = pcmToWav(pcmBuffer, sampleRate);
     fs.writeFileSync(filepath, wavBuffer);

@@ -45,6 +45,8 @@ const DEFAULT_SETTINGS = {
   quizDifficulty: "medium",
   language: "en",
   voiceOverride: "auto",
+  voiceB: "auto",       // second voice for podcast mode
+  format: "solo",       // solo | podcast
   autoAdvance: "on",
   // App-wide UI settings
   appTheme: "dark",     // dark | light | auto (only applies when uiTheme = default)
@@ -185,6 +187,12 @@ const I18N = {
     err_no_reels: "No reels were generated",
     err_upload_failed: "Upload failed",
     err_type_first: "Type a subject name first",
+    // Format / podcast / surprise
+    label_format: "Format",
+    format_solo: "🎤 Solo",
+    format_podcast: "🎙 Podcast (2 voices)",
+    voice_a_suffix: " A",
+    surprise_toast: "🎲 Random preset rolled",
   },
 
   ar: {
@@ -284,6 +292,12 @@ const I18N = {
     err_no_reels: "لم يتم إنشاء ريلز",
     err_upload_failed: "فشل الرفع",
     err_type_first: "اكتب اسم الموضوع أولاً",
+    // Format / podcast / surprise
+    label_format: "الصيغة",
+    format_solo: "🎤 صوت واحد",
+    format_podcast: "🎙 بودكاست (صوتان)",
+    voice_a_suffix: " أ",
+    surprise_toast: "🎲 إعدادات عشوائية",
   },
 };
 
@@ -403,6 +417,11 @@ function applySettingsToUI() {
   });
 }
 
+function applyFormat(f) {
+  document.body.dataset.format = f || "solo";
+}
+applyFormat(settings.format);
+
 document.querySelectorAll(".cu-chips").forEach((group) => {
   group.addEventListener("click", (e) => {
     const chip = e.target.closest(".cu-chip");
@@ -414,6 +433,7 @@ document.querySelectorAll(".cu-chips").forEach((group) => {
     if (name === "appTheme") applyAppTheme(val);
     if (name === "uiTheme") applyUiTheme(val);
     if (name === "appLang") applyAppLang(val);
+    if (name === "format") applyFormat(val);
     saveSettings();
     applySettingsToUI();
     updateSpeedButton();
@@ -517,6 +537,7 @@ async function generate() {
     fd.append("vibeCustom", settings.vibeCustom || "");
     fd.append("quizDifficultyCustom", settings.quizDifficultyCustom || "");
     fd.append("languageCustom", settings.languageCustom || "");
+    fd.append("format", settings.format || "solo");
     if (subjectId) fd.append("subjectId", subjectId);
     if (chapterTitle) fd.append("chapterTitle", chapterTitle);
 
@@ -756,8 +777,13 @@ function buildChunks(text, maxPerChunk = 4) {
   return chunks;
 }
 
+function stripPodcastTags(text) {
+  return (text || "").replace(/\[[AB]\]\s*:?\s*/g, "").replace(/\s+/g, " ").trim();
+}
+
 function renderChunkedCaption(text) {
-  const chunks = buildChunks(text);
+  const cleaned = stripPodcastTags(text);
+  const chunks = buildChunks(cleaned);
   return chunks
     .map((ch, ci) => {
       const inner = ch
@@ -1201,11 +1227,13 @@ function ensureAudio(idx) {
   if (!reel) return Promise.reject(new Error("no reel"));
 
   const voice = (settings.voiceOverride && settings.voiceOverride !== "auto") ? settings.voiceOverride : reel.voice;
+  const voiceB = (settings.voiceB && settings.voiceB !== "auto") ? settings.voiceB : (reel.voiceB || "Charon");
+  const format = settings.format || "solo";
 
   const p = fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: reel.narration, voice }),
+    body: JSON.stringify({ text: reel.narration, voice, voiceB, format }),
   })
     .then((r) => r.json())
     .then((data) => {
@@ -2107,6 +2135,31 @@ function playChapter(chapter) {
 // ----- Settings button + modal -----
 document.getElementById("settingsBtn")?.addEventListener("click", () => {
   openModal(document.getElementById("settingsModal"));
+});
+
+// ----- Surprise Me: roll a random preset (vibe/look/length/pace/format/voices) -----
+document.getElementById("surpriseBtn")?.addEventListener("click", () => {
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const VOICES = ["Aoede", "Puck", "Charon", "Kore", "Leda", "Fenrir"];
+  settings.vibe = pick(["educational", "fun", "dramatic", "chill", "genz"]);
+  settings.imageStyle = pick(["photo", "3d", "watercolor", "anime", "neon", "vintage", "oil"]);
+  settings.length = pick(["short", "standard", "long"]);
+  settings.pace = pick(["chill", "normal", "fast"]);
+  settings.quizDifficulty = pick(["easy", "medium", "hard"]);
+  settings.format = Math.random() < 0.4 ? "podcast" : "solo";
+  settings.voiceOverride = pick(["auto", ...VOICES]);
+  if (settings.format === "podcast") {
+    const others = VOICES.filter((v) => v !== settings.voiceOverride);
+    settings.voiceB = pick(["auto", ...others]);
+  }
+  speedIdx = PACE_TO_SPEED_IDX[settings.pace] ?? 1;
+  applyFormat(settings.format);
+  saveSettings();
+  applySettingsToUI();
+  updateSpeedButton();
+  sfx("ding"); haptic([20, 30, 20]);
+  setMascotState("happy", 1500);
+  showToast(t("surprise_toast"));
 });
 
 function refreshActionsForReel(reelEl) {
