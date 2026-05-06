@@ -65,10 +65,15 @@
             accept=".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,image/*" />
           <div class="dz-inner">
             <div class="dz-icon">+</div>
-            <div class="dz-text" id="dzText" data-i18n="drop_text">Click or drop a file here</div>
+            <div class="dz-text" id="dzText" data-i18n="drop_text">Tap or drop a file here</div>
             <div class="dz-sub" data-i18n="drop_size">Up to 100&nbsp;MB</div>
           </div>
         </label>
+
+        <button id="pasteTextBtn" class="ghost-btn paste-btn" type="button">
+          <span class="ge-icon">📝</span>
+          <span class="ge-text" data-i18n="paste_text">Or paste text instead</span>
+        </button>
 
         <div class="customize" id="customize">
           <div class="cu-row">
@@ -293,6 +298,18 @@
 
       <div class="hint-toast" id="firstHint" data-i18n="tip_reels">Tap edges to skip · double-tap to ❤ · scroll for next</div>
     </section>
+
+    <!-- Paste text modal -->
+    <div id="pasteModal" class="modal hidden">
+      <div class="modal-backdrop" data-close></div>
+      <div class="modal-card">
+        <button class="modal-close" data-close aria-label="Close">×</button>
+        <h3 class="modal-title" data-i18n="paste_text_title">Paste your text</h3>
+        <p class="modal-sub" data-i18n="paste_text_sub">Notes, an article, anything. Gemini cleans it up and turns it into reels.</p>
+        <textarea id="pasteInput" rows="9" data-i18n-placeholder="paste_placeholder" placeholder="Paste anything here…"></textarea>
+        <button id="pasteSubmit" class="primary" data-i18n="paste_submit">Generate from text</button>
+      </div>
+    </div>
 
     <!-- Ask AI modal -->
     <div id="askModal" class="modal hidden">

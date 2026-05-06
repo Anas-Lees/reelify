@@ -134,9 +134,30 @@ GROUPING RULES:
 EACH REEL MUST HAVE:
 1. "title": short, punchy hook (max 8 words). Engaging, not academic.
 2. "narration": the script the TTS will read aloud. 40-90 words. Conversational, energetic, easy to listen to. Use short sentences. No markdown, no bullet points, no special characters that would sound weird in TTS. Just clean spoken text.
+   IMPORTANT: if the input is rough notes / typos / fragmented copy-paste, FIX it as you write narration — proper grammar, accurate facts, clean structure.
 3. "background_prompt": describe ONE clear visual scene that DIRECTLY illustrates this reel's topic so a viewer can SEE what's being explained — like the cover image of a magazine article. Format your prompt as: "[STYLE] of [SPECIFIC SUBJECT], [composition detail], [lighting], [mood/atmosphere]". The SUBJECT must be concrete and identifiable (e.g. "the human heart", "the Eiffel Tower at golden hour", "a glowing DNA double helix", "a Roman legionary in armor"), NOT abstract patterns or vibes. Position the subject DEAD CENTER of the frame, magazine-cover style, with clean uncluttered surroundings. Pick a polished aesthetic appropriate to the topic: cinematic photo, scientific illustration, watercolor, oil painting, 3D render, matte painting, or vintage poster. The image should TEACH the topic visually, not just decorate. Make every reel's background visually distinct from the others.
 4. "accent_color": a single hex color (e.g. "#FF6B6B") that matches the mood of the reel for UI accents.
 5. "voice": pick the voice that best matches this reel's tone, from EXACTLY one of: "Aoede" (breezy, upbeat), "Puck" (bright, playful), "Charon" (informative, deep), "Kore" (firm, clear), "Leda" (warm, youthful), "Fenrir" (energetic, intense). Vary voices across reels — don't pick the same one every time.
+
+OPTIONAL — "card" field on a reel:
+Some content is best shown VISUALLY rather than only spoken: math formulas, code snippets, important quotes, structured lists, key definitions. For those reels (and ONLY those — use sparingly, maybe 0-3 reels per document), include a "card" object so the viewer reads it on-screen while you narrate around it:
+  "card": {
+    "type": "code" | "math" | "quote" | "definition" | "list",
+    "title": "Optional short label, max 6 words",
+    "language": "python" | "javascript" | "go" | etc — only when type is "code",
+    "content": "The actual text. Keep under 350 characters. Multi-line OK. For code, format it cleanly. For math, plain text or LaTeX-style notation. For lists, use - bullets, one per line."
+  }
+The narration STILL describes / explains the card content — voice + card together.
+
+OPTIONAL — "checkpoint" field on a reel:
+For 30-50% of reels (skip easy/intro reels), include a quick 1-question check to keep the viewer engaged:
+  "checkpoint": {
+    "question": "Short question testing the reel's main point",
+    "options": ["...", "...", "..."],     // 3 options
+    "correct_index": 0,
+    "explanation": "One short sentence explaining why."
+  }
+These appear AFTER the reel as quick interludes.
 
 QUIZ RULES:
 - Generate 4-6 multiple-choice questions covering the most important info from the document.
@@ -149,7 +170,15 @@ OUTPUT: Return ONLY valid JSON in exactly this shape (no markdown fences, no com
 {
   "title": "Overall short title for the document",
   "reels": [
-    { "title": "...", "narration": "...", "background_prompt": "...", "accent_color": "#RRGGBB", "voice": "Aoede" }
+    {
+      "title": "...",
+      "narration": "...",
+      "background_prompt": "...",
+      "accent_color": "#RRGGBB",
+      "voice": "Aoede",
+      "card": null,
+      "checkpoint": null
+    }
   ],
   "quiz": [
     { "question": "...", "options": ["...", "...", "...", "..."], "correct_index": 0, "explanation": "..." }
@@ -167,7 +196,10 @@ function isNativelySupported(mime) {
 
 async function extractContentForGemini(filePath, originalName, mimeType) {
   const ext = path.extname(originalName).toLowerCase();
+  const size = fs.statSync(filePath).size;
+  console.log(`[upload] "${originalName}" mime=${mimeType} ext=${ext} size=${size}`);
 
+  // Native Gemini File API path (PDF, images)
   if (isNativelySupported(mimeType)) {
     const uploaded = await ai.files.upload({
       file: filePath,
@@ -179,27 +211,55 @@ async function extractContentForGemini(filePath, originalName, mimeType) {
       f = await ai.files.get({ name: uploaded.name });
     }
     if (f.state === "FAILED") throw new Error("Gemini failed to process file");
+    console.log(`[upload] using Gemini File API ref ${f.uri}`);
     return { kind: "fileRef", uri: f.uri, mimeType: f.mimeType };
   }
 
+  // Office docs (DOCX/PPTX/XLSX/ODT/ODP/ODS) — extract text via officeparser
   if (OFFICE_EXTENSIONS.has(ext)) {
-    const text = await officeParser.parseOfficeAsync(filePath);
-    return { kind: "text", text: text.slice(0, 200000) };
+    let extracted = "";
+    try {
+      extracted = await officeParser.parseOfficeAsync(filePath, {
+        outputErrorToConsole: false,
+        newlineDelimiter: "\n",
+        ignoreNotes: false,
+      });
+    } catch (e) {
+      console.error(`[upload] officeparser threw on ${ext}:`, e?.message || e);
+      throw new Error(
+        `Couldn't read the ${ext.replace('.', '').toUpperCase()} file (${e?.message || "parse error"}). ` +
+        `Try saving it as PDF and re-uploading, or paste the text directly with the Paste text button.`
+      );
+    }
+    const trimmed = (extracted || "").trim();
+    console.log(`[upload] officeparser extracted ${trimmed.length} chars`);
+    if (trimmed.length < 30) {
+      throw new Error(
+        `The ${ext.replace('.', '').toUpperCase()} file gave us almost no readable text. ` +
+        `It might be image-only (scans need OCR), password-protected, or in an old format. ` +
+        `Try exporting it as PDF and uploading that instead.`
+      );
+    }
+    return { kind: "text", text: trimmed.slice(0, 200000) };
   }
 
+  // Plain-text-ish files
   if (TEXT_LIKE_EXTENSIONS.has(ext) || mimeType.startsWith("text/")) {
     const text = fs.readFileSync(filePath, "utf-8");
     return { kind: "text", text: text.slice(0, 200000) };
   }
 
+  // Last-ditch: try officeparser on unknown extensions
   try {
     const text = await officeParser.parseOfficeAsync(filePath);
-    if (text && text.trim().length > 0) {
+    if (text && text.trim().length > 30) {
       return { kind: "text", text: text.slice(0, 200000) };
     }
-  } catch {}
+  } catch (e) {
+    console.warn(`[upload] last-ditch officeparser also failed:`, e?.message || e);
+  }
 
-  throw new Error(`Unsupported file type: ${mimeType || ext}`);
+  throw new Error(`Unsupported file type: ${mimeType || ext || "unknown"}. Try a PDF or paste the text directly.`);
 }
 
 app.post("/api/upload", upload.single("file"), async (req, res) => {

@@ -194,6 +194,15 @@ const I18N = {
     voice_a_suffix: " A",
     surprise_toast: "🎲 Random preset rolled",
     tap_to_start: "Tap to start",
+    // Paste text
+    paste_text: "Or paste text instead",
+    paste_text_title: "Paste your text",
+    paste_text_sub: "Notes, an article, anything. Gemini cleans it up and turns it into reels.",
+    paste_placeholder: "Paste anything here — notes, an article, even rough thoughts. The AI fixes typos and structures it.",
+    paste_submit: "Generate from text",
+    paste_too_short: "Add a bit more text first",
+    // Checkpoint
+    checkpoint_label: "Quick check",
   },
 
   ar: {
@@ -300,6 +309,13 @@ const I18N = {
     voice_a_suffix: " أ",
     surprise_toast: "🎲 إعدادات عشوائية",
     tap_to_start: "انقر للبدء",
+    paste_text: "أو ألصق نصاً بدلاً من ذلك",
+    paste_text_title: "ألصق نصك",
+    paste_text_sub: "ملاحظات، مقال، أي شيء. الذكاء يصححه ويحوّله إلى ريلز.",
+    paste_placeholder: "ألصق أي شيء هنا — ملاحظات، مقال، حتى أفكار غير منظمة. الذكاء يصلح الأخطاء وينظمها.",
+    paste_submit: "أنشئ من النص",
+    paste_too_short: "أضف مزيداً من النص أولاً",
+    checkpoint_label: "تحقّق سريع",
   },
 };
 
@@ -600,15 +616,28 @@ function closeReels() {
 // ----- Render -----
 function renderAll() {
   reelsContainer.innerHTML = "";
-  const totalSlides = currentReels.length + (currentQuiz.length ? 1 : 0);
 
+  // Build slide sequence: each reel + its optional checkpoint inserted right after,
+  // and the final aggregate quiz at the end.
+  const sequence = [];
   currentReels.forEach((reel, idx) => {
-    reelsContainer.appendChild(buildReel(reel, idx, totalSlides));
+    sequence.push({ kind: "reel", reelIdx: idx });
+    if (reel.checkpoint && reel.checkpoint.question && Array.isArray(reel.checkpoint.options)) {
+      sequence.push({ kind: "checkpoint", reelIdx: idx });
+    }
   });
+  if (currentQuiz.length) sequence.push({ kind: "quiz" });
+  const total = sequence.length;
 
-  if (currentQuiz.length) {
-    reelsContainer.appendChild(buildQuizReel(currentReels.length, totalSlides));
-  }
+  sequence.forEach((slot, slotIdx) => {
+    if (slot.kind === "reel") {
+      reelsContainer.appendChild(buildReel(currentReels[slot.reelIdx], slotIdx, total));
+    } else if (slot.kind === "checkpoint") {
+      reelsContainer.appendChild(buildCheckpointReel(currentReels[slot.reelIdx].checkpoint, slotIdx, total));
+    } else if (slot.kind === "quiz") {
+      reelsContainer.appendChild(buildQuizReel(slotIdx, total));
+    }
+  });
 
   observeReels();
 }
@@ -658,11 +687,36 @@ function buildReel(reel, idx, total) {
   titleEl.textContent = reel.title || "";
   titleWrap.appendChild(titleEl);
 
+  // Optional card (math / code / quote / definition / list)
+  let cardEl = null;
+  if (reel.card && reel.card.type && reel.card.content) {
+    reelEl.classList.add("has-card");
+    cardEl = document.createElement("div");
+    cardEl.className = `reel-card reel-card-${reel.card.type}`;
+    if (reel.card.title) {
+      const cardTitle = document.createElement("div");
+      cardTitle.className = "reel-card-title";
+      cardTitle.textContent = reel.card.title;
+      cardEl.appendChild(cardTitle);
+    }
+    if (reel.card.type === "code" && reel.card.language) {
+      const lang = document.createElement("div");
+      lang.className = "reel-card-lang";
+      lang.textContent = reel.card.language;
+      cardEl.appendChild(lang);
+    }
+    const cardBody = document.createElement("pre");
+    cardBody.className = "reel-card-body";
+    cardBody.textContent = String(reel.card.content).slice(0, 600);
+    cardEl.appendChild(cardBody);
+  }
+
   const captionStage = document.createElement("div");
   captionStage.className = "reel-caption-stage";
   captionStage.innerHTML = renderChunkedCaption(reel.narration || "");
 
-  content.append(titleWrap, captionStage);
+  if (cardEl) content.append(titleWrap, cardEl, captionStage);
+  else        content.append(titleWrap, captionStage);
 
   const playIcon = document.createElement("div");
   playIcon.className = "play-icon";
@@ -678,6 +732,94 @@ function buildReel(reel, idx, total) {
   reelEl.append(bg, overlay, top, content, playIcon, audioLoading);
 
   attachTapHandlers(reelEl);
+
+  return reelEl;
+}
+
+function buildCheckpointReel(checkpoint, idx, total) {
+  const reelEl = document.createElement("div");
+  reelEl.className = "reel checkpoint-reel";
+  reelEl.dataset.idx = String(idx);
+  reelEl.dataset.kind = "checkpoint";
+  reelEl.style.setProperty("--accent-glow", "rgba(255, 200, 100, 0.7)");
+
+  const bg = document.createElement("div");
+  bg.className = "reel-bg quiz-bg";
+
+  const overlay = document.createElement("div");
+  overlay.className = "reel-overlay";
+
+  const top = document.createElement("div");
+  top.className = "reel-top";
+  const progress = document.createElement("div");
+  progress.className = "reel-progress";
+  for (let p = 0; p < total; p++) {
+    const seg = document.createElement("div");
+    seg.className = "seg" + (p < idx ? " done" : "");
+    const fill = document.createElement("span");
+    fill.className = "fill";
+    if (p < idx) fill.style.width = "100%";
+    seg.appendChild(fill);
+    progress.appendChild(seg);
+  }
+  const meta = document.createElement("div");
+  meta.className = "reel-meta";
+  meta.innerHTML = `<span>${escapeHtml(t("checkpoint_label"))}</span><span>Reelify</span>`;
+  top.append(progress, meta);
+
+  const wrap = document.createElement("div");
+  wrap.className = "checkpoint-wrap";
+  const labels = ["A", "B", "C", "D", "E"];
+  const optsHtml = checkpoint.options
+    .map((opt, i) => `
+      <button class="quiz-option cp-option" data-i="${i}">
+        <span class="qo-label">${labels[i] || ""}</span>
+        <span class="qo-text">${escapeHtml(opt)}</span>
+      </button>`)
+    .join("");
+
+  wrap.innerHTML = `
+    <div class="checkpoint-card">
+      <div class="cp-tag">⚡ ${escapeHtml(t("checkpoint_label"))}</div>
+      <h3 class="quiz-question">${escapeHtml(checkpoint.question)}</h3>
+      <div class="quiz-options cp-options">${optsHtml}</div>
+      <div class="quiz-feedback hidden cp-feedback"></div>
+      <button class="quiz-next cp-next hidden">${escapeHtml(t("quiz_next"))}</button>
+    </div>
+  `;
+
+  reelEl.append(bg, overlay, top, wrap);
+
+  let answered = false;
+  wrap.querySelector(".cp-options").addEventListener("click", (e) => {
+    if (answered) return;
+    const btn = e.target.closest(".cp-option");
+    if (!btn) return;
+    answered = true;
+    const choice = Number(btn.dataset.i);
+    const correct = checkpoint.correct_index;
+    wrap.querySelectorAll(".cp-option").forEach((b, i) => {
+      b.disabled = true;
+      if (i === correct) b.classList.add("correct");
+      if (i === choice && choice !== correct) b.classList.add("incorrect");
+    });
+    const fb = wrap.querySelector(".cp-feedback");
+    fb.classList.remove("hidden");
+    fb.classList.toggle("ok",  choice === correct);
+    fb.classList.toggle("bad", choice !== correct);
+    fb.innerHTML = (choice === correct ? t("quiz_correct") + " " : t("quiz_incorrect") + " ") + escapeHtml(checkpoint.explanation || "");
+    wrap.querySelector(".cp-next").classList.remove("hidden");
+    if (choice === correct) {
+      sfx("chime"); haptic([10, 50, 10]); setMascotState("happy", 1500);
+      spawnSparkles(reelEl);
+    } else {
+      sfx("buzzer"); haptic(80); setMascotState("sad", 1500);
+    }
+  });
+  wrap.querySelector(".cp-next").addEventListener("click", () => {
+    const next = reelEl.nextElementSibling;
+    if (next) next.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
   return reelEl;
 }
@@ -864,6 +1006,10 @@ async function activateReel(reelEl, idx) {
 
   if (reelEl.dataset.kind === "quiz") {
     activateQuiz(reelEl);
+    return;
+  }
+  if (reelEl.dataset.kind === "checkpoint") {
+    // Checkpoint interludes are silent — no TTS, no image, just the question card
     return;
   }
 
@@ -2178,6 +2324,26 @@ document.getElementById("settingsBtn")?.addEventListener("click", () => {
   openModal(document.getElementById("settingsModal"));
 });
 
+// ----- Paste text: alternative to file upload -----
+document.getElementById("pasteTextBtn")?.addEventListener("click", () => {
+  unlockAudio();
+  openModal(document.getElementById("pasteModal"));
+  setTimeout(() => document.getElementById("pasteInput")?.focus(), 80);
+});
+document.getElementById("pasteSubmit")?.addEventListener("click", () => {
+  const ta = document.getElementById("pasteInput");
+  const text = (ta?.value || "").trim();
+  if (text.length < 30) { showToast(t("paste_too_short")); return; }
+  // Wrap as a text/plain blob so the existing /api/upload pipeline accepts it.
+  const blob = new Blob([text], { type: "text/plain" });
+  selectedFile = new File([blob], "pasted-text.txt", { type: "text/plain" });
+  dzText.textContent = t("paste_text_title");
+  dropZone.classList.add("has-file");
+  generateBtn.disabled = false;
+  closeModal(document.getElementById("pasteModal"));
+  generate();
+});
+
 // ----- Surprise Me: roll a random preset (vibe/look/length/pace/format/voices) -----
 document.getElementById("surpriseBtn")?.addEventListener("click", () => {
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -2204,9 +2370,10 @@ document.getElementById("surpriseBtn")?.addEventListener("click", () => {
 });
 
 function refreshActionsForReel(reelEl) {
-  const isQuiz = reelEl.dataset.kind === "quiz";
-  actionsEl.classList.toggle("hidden", isQuiz);
-  if (isQuiz) return;
+  const kind = reelEl.dataset.kind;
+  const hideActions = kind === "quiz" || kind === "checkpoint";
+  actionsEl.classList.toggle("hidden", hideActions);
+  if (hideActions) return;
 
   const idx = Number(reelEl.dataset.idx);
   const reel = currentReels[idx];
