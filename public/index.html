@@ -12,7 +12,32 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260506b" />
+  <script>
+    // Global error visibility — without this, a single JS error silently
+    // prevents every event handler from being attached and the UI feels frozen.
+    (function () {
+      function show(msg) {
+        try {
+          var e = document.getElementById("global-error");
+          if (!e) {
+            e = document.createElement("div");
+            e.id = "global-error";
+            e.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#3a1010;color:#ffd0d0;padding:12px 16px;font-family:-apple-system,sans-serif;font-size:13px;line-height:1.4;white-space:pre-wrap;border-bottom:1px solid #5a2020";
+            (document.body || document.documentElement).appendChild(e);
+          }
+          e.textContent = "App error: " + msg + "  (long-press to copy)";
+        } catch (_) {}
+      }
+      window.addEventListener("error", function (ev) {
+        show((ev.error && ev.error.message) || ev.message || "unknown");
+      });
+      window.addEventListener("unhandledrejection", function (ev) {
+        var r = ev.reason;
+        show((r && r.message) || String(r) || "unhandled promise");
+      });
+    })();
+  </script>
 </head>
 <body>
   <main id="app">
@@ -470,6 +495,6 @@
     <div id="toast" class="toast hidden"></div>
   </main>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260506b"></script>
 </body>
 </html>

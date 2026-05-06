@@ -1124,8 +1124,12 @@ async function activateReel(reelEl, idx) {
     pre.src = url;
   });
 
-  if (idx + 1 < currentReels.length) { ensureImage(idx + 1); ensureAudio(idx + 1); }
-  if (idx - 1 >= 0) ensureImage(idx - 1);
+  // Aggressive prefetch: current + next 3 + previous 1 (image AND audio).
+  // Combined with backgroundFillAllAssets() this means users almost never wait.
+  for (let i = idx + 1; i <= idx + 3; i++) {
+    if (i < currentReels.length) { ensureImage(i); ensureAudio(i); }
+  }
+  if (idx - 1 >= 0) { ensureImage(idx - 1); ensureAudio(idx - 1); }
 
   speakReel(reelEl, idx);
 }
@@ -2010,7 +2014,9 @@ saveBtn.onclick = async (e) => {
   }
 };
 
-// Replace refreshActionsForReel's saved-state check to call server (cached)
+// Cache of saved reel titles (populated from /api/saved) — used by
+// refreshActionsForReel to mark the save button as already-saved without
+// re-querying the server every time.
 let savedTitlesCache = new Set();
 async function refreshSavedTitlesCache() {
   try {
@@ -2018,17 +2024,6 @@ async function refreshSavedTitlesCache() {
     savedTitlesCache = new Set(arr.map((r) => `${r.title}::${r.narration}`));
   } catch {}
 }
-const _origRefresh = refreshActionsForReel;
-refreshActionsForReel = function(reelEl) {
-  _origRefresh(reelEl);
-  if (!authToken) return;
-  if (reelEl.dataset.kind !== "narration") return;
-  const idx = Number(reelEl.dataset.idx);
-  const reel = currentReels[idx];
-  if (!reel) return;
-  const key = `${reel.title}::${reel.narration}`;
-  saveBtn.classList.toggle("saved", savedTitlesCache.has(key));
-};
 
 // Override the upload-screen "Saved (N)" pill to open library page on the saved tab
 savedBtn?.addEventListener("click", (e) => {
@@ -2047,19 +2042,9 @@ libraryBtn?.addEventListener("click", (e) => {
 }, true);
 
 // =============================================================
-//  Aggressive prefetch — kick off ALL reels' assets after render
-//  so users don't wait when scrolling
+//  Background fill — pre-warm all reels' assets after upload so the
+//  user almost never waits.
 // =============================================================
-const _origActivate = activateReel;
-activateReel = async function(reelEl, idx) {
-  await _origActivate(reelEl, idx);
-  // Prefetch +1 +2 +3, plus -1 (going back) — beyond what _origActivate does
-  for (let i = idx + 1; i <= idx + 3; i++) {
-    if (i < currentReels.length) { ensureImage(i); ensureAudio(i); }
-  }
-  if (idx - 1 >= 0) { ensureImage(idx - 1); ensureAudio(idx - 1); }
-};
-
 function backgroundFillAllAssets() {
   // Generate every reel's image+audio in the background, with 2 concurrent workers
   if (!currentReels.length) return;
@@ -3076,6 +3061,9 @@ function refreshActionsForReel(reelEl) {
   likeBtn.querySelector(".ra-count").textContent = formatCount(reelLikes[idx] || 0);
   likeBtn.classList.toggle("liked", (reelLikes[idx] || 0) > 0);
 
-  // Saved state
-  saveBtn.classList.toggle("saved", !!(reel && isReelSaved(reel)));
+  // Saved state — uses the server-side cache populated by refreshSavedTitlesCache()
+  if (reel) {
+    const key = `${reel.title}::${reel.narration}`;
+    saveBtn.classList.toggle("saved", typeof savedTitlesCache !== "undefined" && savedTitlesCache.has(key));
+  }
 }
