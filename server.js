@@ -37,9 +37,22 @@ for (const d of [uploadsDir, imagesDir, audioDir]) {
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/images", express.static(imagesDir));
-app.use("/audio", express.static(audioDir));
+// Defeat WebView caching of HTML/JS/CSS so deploys land on phones immediately
+// (without users having to clear app data). Generated images/audio are content-
+// addressed and safe to cache aggressively.
+app.use(express.static(path.join(__dirname, "public"), {
+  setHeaders(res, filepath) {
+    if (/\.(html|js|css|json)$/.test(filepath)) {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    }
+  },
+}));
+app.use("/images", express.static(imagesDir, {
+  setHeaders(res) { res.setHeader("Cache-Control", "public, max-age=2592000, immutable"); },
+}));
+app.use("/audio", express.static(audioDir, {
+  setHeaders(res) { res.setHeader("Cache-Control", "public, max-age=2592000, immutable"); },
+}));
 
 const upload = multer({
   dest: uploadsDir,
