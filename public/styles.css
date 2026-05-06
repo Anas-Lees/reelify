@@ -1182,6 +1182,41 @@ html[dir="rtl"] .dz-inner { text-align: center; }
 /* Toast position remains centered horizontally */
 html[dir="rtl"] .toast { direction: rtl; }
 
+/* Labels above each chip group sit on the right in RTL */
+html[dir="rtl"] .cu-label { text-align: right; padding-right: 2px; padding-left: 0; }
+
+/* Inputs + textareas + custom-text inputs — typed text and placeholder both right */
+html[dir="rtl"] input, html[dir="rtl"] textarea,
+html[dir="rtl"] .cu-custom-input, html[dir="rtl"] #askInput,
+html[dir="rtl"] #nsTitle, html[dir="rtl"] #nsEmoji {
+  text-align: right;
+  direction: rtl;
+}
+html[dir="rtl"] input::placeholder, html[dir="rtl"] textarea::placeholder {
+  text-align: right;
+  direction: rtl;
+}
+
+/* Chip groups flow RTL so chips read right-to-left */
+html[dir="rtl"] .cu-chips { direction: rtl; }
+
+/* Library / saved meta lines */
+html[dir="rtl"] .ch-meta, html[dir="rtl"] .sc-meta, html[dir="rtl"] .si-meta {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Quiz feedback / options text */
+html[dir="rtl"] .quiz-feedback { text-align: right; direction: rtl; }
+html[dir="rtl"] .quiz-options { direction: rtl; }
+html[dir="rtl"] .qo-text { text-align: right; }
+
+/* Settings note + ask context: right-aligned */
+html[dir="rtl"] .modal-sub, html[dir="rtl"] #askContext { text-align: right; direction: rtl; }
+
+/* Hint stays centered, stats badge keeps numbers in LTR but flips order */
+html[dir="rtl"] .hint { text-align: center; }
+
 /* ----- Action-bar SVG icons ----- */
 .ra-svg {
   width: 22px;
@@ -2588,3 +2623,208 @@ body[data-caption-size="large"]  .caption-chunk { font-size: 42px; }
   .caption-chunk { font-size: 28px; }
   .reel-title { font-size: 19px; }
 }
+
+/* =================================================================
+   DARK / LIGHT VARIANTS FOR ALL UI THEMES
+   ================================================================= */
+
+/* ---------- EDITORIAL — DARK variant ---------- */
+body[data-ui-theme="editorial"][data-app-theme="dark"] {
+  background: #15110d;
+  color: #faf6ee;
+}
+body[data-ui-theme="editorial"][data-app-theme="dark"] .upload-card {
+  background: #1f1812;
+  border-color: rgba(250, 246, 238, 0.08);
+  color: #faf6ee;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+body[data-ui-theme="editorial"][data-app-theme="dark"] h1 {
+  background: linear-gradient(180deg, #faf6ee 0%, #d4ba75 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body[data-ui-theme="editorial"][data-app-theme="dark"] .sub,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .hint,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .stats-badge,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .modal-sub,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .ch-meta,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .sc-meta,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .saved-item .si-narr,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .cu-label { color: #a89b85; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .drop-zone { border: 1px solid #3a3027; background: rgba(250, 246, 238, 0.03); }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .dz-icon { background: rgba(250, 246, 238, 0.08); color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .dz-text { color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .dz-sub { color: #a89b85; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .cu-chip { background: #1f1812; border-color: #3a3027; color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .cu-chip:hover { background: #2a2018; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .cu-chip.active { background: #faf6ee; border-color: #faf6ee; color: #0E0E12; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .primary { background: #faf6ee; color: #0E0E12; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .ghost-btn { background: transparent; border-color: #3a3027; color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .modal-card { background: #1f1812; border-color: #3a3027; color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .modal-close { background: rgba(250, 246, 238, 0.06); color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .subject-card { background: #1a1410; border-color: rgba(250, 246, 238, 0.08); }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .ch-row { background: rgba(250, 246, 238, 0.03); border-color: rgba(250, 246, 238, 0.06); }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .ch-row:hover { background: rgba(255, 131, 102, 0.1); }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .ch-num { background: #faf6ee; color: #0E0E12; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .ch-title,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .sc-title,
+body[data-ui-theme="editorial"][data-app-theme="dark"] .saved-item .si-title { color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .saved-item { background: #1f1812 !important; border-color: rgba(250, 246, 238, 0.08); color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .saved-item .si-voice { background: rgba(250, 246, 238, 0.08); color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .quiz-card { background: #1f1812; border-color: rgba(250, 246, 238, 0.08); color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .quiz-question, body[data-ui-theme="editorial"][data-app-theme="dark"] .quiz-meta { color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .quiz-option { background: #15110d; border-color: #3a3027; color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .quiz-option.correct { background: rgba(108, 140, 74, 0.25); border-color: #6c8c4a; color: #d6e8b8; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .quiz-option.incorrect { background: rgba(255, 131, 102, 0.25); border-color: #ff8366; color: #ffd9c8; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .qo-label { background: #faf6ee; color: #0E0E12; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] #askInput { background: #15110d; border-color: #3a3027; color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .ask-answer { background: rgba(212, 186, 117, 0.1); border-color: rgba(212, 186, 117, 0.3); color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .new-subject-form input { background: #15110d; border-color: #3a3027; color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .toast { background: #1f1812; border-color: #3a3027; color: #faf6ee; }
+body[data-ui-theme="editorial"][data-app-theme="dark"] .cu-custom-input { background: #15110d; border-color: #3a3027; color: #faf6ee; }
+
+/* ---------- LIQUID GLASS — LIGHT variant ---------- */
+body[data-ui-theme="glass"][data-app-theme="light"] { background: #f5f6fa; color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"]::before {
+  background:
+    radial-gradient(circle at 20% 20%, hsla(280, 90%, 75%, 0.55) 0px, transparent 38%),
+    radial-gradient(circle at 80%  0%, hsla(220, 90%, 75%, 0.55) 0px, transparent 42%),
+    radial-gradient(circle at  0% 60%, hsla(195, 90%, 75%, 0.50) 0px, transparent 40%),
+    radial-gradient(circle at 90% 90%, hsla(330, 90%, 78%, 0.50) 0px, transparent 42%),
+    radial-gradient(circle at 50% 50%, hsla(45,  95%, 75%, 0.40) 0px, transparent 50%),
+    #f5f6fa;
+}
+body[data-ui-theme="glass"][data-app-theme="light"] h1 {
+  background: linear-gradient(135deg, #2a2a3a, #5a4dff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body[data-ui-theme="glass"][data-app-theme="light"] .sub,
+body[data-ui-theme="glass"][data-app-theme="light"] .hint,
+body[data-ui-theme="glass"][data-app-theme="light"] .stats-badge,
+body[data-ui-theme="glass"][data-app-theme="light"] .modal-sub,
+body[data-ui-theme="glass"][data-app-theme="light"] .ch-meta,
+body[data-ui-theme="glass"][data-app-theme="light"] .sc-meta,
+body[data-ui-theme="glass"][data-app-theme="light"] .saved-item .si-narr { color: rgba(0, 0, 0, 0.55); }
+body[data-ui-theme="glass"][data-app-theme="light"] .cu-label { color: rgba(0, 0, 0, 0.5); }
+body[data-ui-theme="glass"][data-app-theme="light"] .drop-zone { background: rgba(255, 255, 255, 0.5); border-color: rgba(0, 0, 0, 0.08); }
+body[data-ui-theme="glass"][data-app-theme="light"] .dz-icon { background: rgba(0, 0, 0, 0.06); color: #15151c; border-color: rgba(0, 0, 0, 0.1); }
+body[data-ui-theme="glass"][data-app-theme="light"] .dz-text { color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .cu-chip { background: rgba(255, 255, 255, 0.5); border-color: rgba(0, 0, 0, 0.08); color: rgba(0, 0, 0, 0.78); }
+body[data-ui-theme="glass"][data-app-theme="light"] .cu-chip:hover { background: rgba(255, 255, 255, 0.75); }
+body[data-ui-theme="glass"][data-app-theme="light"] .cu-chip.active { background: rgba(255, 255, 255, 0.85); border-color: rgba(0, 0, 0, 0.18); color: #15151c; box-shadow: 0 4px 18px rgba(90, 77, 255, 0.18) inset; }
+body[data-ui-theme="glass"][data-app-theme="light"] .ghost-btn { background: rgba(255, 255, 255, 0.55); border-color: rgba(0, 0, 0, 0.1); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .modal-card { background: rgba(255, 255, 255, 0.7); border-top: 1px solid rgba(0, 0, 0, 0.08); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .modal-card::before { background: rgba(0, 0, 0, 0.18); }
+body[data-ui-theme="glass"][data-app-theme="light"] .modal-close { background: rgba(0, 0, 0, 0.06); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .subject-card { background: rgba(255, 255, 255, 0.55); border-color: rgba(0, 0, 0, 0.08); }
+body[data-ui-theme="glass"][data-app-theme="light"] .ch-row { background: rgba(255, 255, 255, 0.45); border-color: rgba(0, 0, 0, 0.06); }
+body[data-ui-theme="glass"][data-app-theme="light"] .ch-row:hover { background: rgba(255, 255, 255, 0.7); }
+body[data-ui-theme="glass"][data-app-theme="light"] .saved-item { background: rgba(255, 255, 255, 0.55) !important; border-color: rgba(0, 0, 0, 0.08); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .ch-title, body[data-ui-theme="glass"][data-app-theme="light"] .sc-title, body[data-ui-theme="glass"][data-app-theme="light"] .saved-item .si-title { color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .quiz-card { background: rgba(255, 255, 255, 0.7); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .quiz-question, body[data-ui-theme="glass"][data-app-theme="light"] .quiz-meta { color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .quiz-option { background: rgba(255, 255, 255, 0.55); border-color: rgba(0, 0, 0, 0.08); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .quiz-option:hover:not(:disabled) { background: rgba(255, 255, 255, 0.85); }
+body[data-ui-theme="glass"][data-app-theme="light"] .qo-label { background: rgba(0, 0, 0, 0.08); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] #askInput { background: rgba(255, 255, 255, 0.7); border-color: rgba(0, 0, 0, 0.1); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .ask-answer { background: rgba(107, 140, 255, 0.12); border-color: rgba(107, 140, 255, 0.35); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .new-subject-form input { background: rgba(255, 255, 255, 0.7); border-color: rgba(0, 0, 0, 0.1); color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .toast { background: rgba(255, 255, 255, 0.85); color: #15151c; border-color: rgba(0, 0, 0, 0.1); }
+body[data-ui-theme="glass"][data-app-theme="light"] .reel-actions { background: rgba(255, 255, 255, 0.55); border-color: rgba(0, 0, 0, 0.08); }
+body[data-ui-theme="glass"][data-app-theme="light"] .ra-icon { color: #15151c; }
+body[data-ui-theme="glass"][data-app-theme="light"] .voice-badge { background: rgba(255, 255, 255, 0.65); color: #15151c; border-color: rgba(0, 0, 0, 0.08); }
+body[data-ui-theme="glass"][data-app-theme="light"] .cu-custom-input { background: rgba(255, 255, 255, 0.6); border-color: rgba(0, 0, 0, 0.1); color: #15151c; }
+
+/* ---------- RISOGRAPH — DARK variant ---------- */
+body[data-ui-theme="riso"][data-app-theme="dark"] {
+  background-color: #1a1812;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.95  0 0 0 0 0.85  0 0 0 0.10 0'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>");
+  color: #f4ecd8;
+}
+body[data-ui-theme="riso"][data-app-theme="dark"] .upload-card { background: #2a2418; border: 2px solid #f4ecd8; box-shadow: 6px 6px 0 #FF5E5B; color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] h1 {
+  background: linear-gradient(135deg, #6b8cff 0%, #ff8a8a 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body[data-ui-theme="riso"][data-app-theme="dark"] .sub,
+body[data-ui-theme="riso"][data-app-theme="dark"] .hint,
+body[data-ui-theme="riso"][data-app-theme="dark"] .stats-badge,
+body[data-ui-theme="riso"][data-app-theme="dark"] .modal-sub,
+body[data-ui-theme="riso"][data-app-theme="dark"] .cu-label { color: #b0a890; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .drop-zone { border: 2px dashed #f4ecd8; background: rgba(255, 255, 255, 0.04); }
+body[data-ui-theme="riso"][data-app-theme="dark"] .dz-icon { background: #FF5E5B; color: #1a1812; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .dz-text { color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .cu-chip { background: #2a2418; border: 1.5px solid #f4ecd8; color: #f4ecd8; box-shadow: 2px 2px 0 #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .cu-chip.active { background: #6b8cff; color: #1a1812; border-color: #f4ecd8; box-shadow: 2px 2px 0 #FF5E5B; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .primary { background: #FF5E5B; border: 2px solid #f4ecd8; color: #f4ecd8; box-shadow: 4px 4px 0 #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .ghost-btn { background: #2a2418; border: 1.5px solid #f4ecd8; color: #f4ecd8; box-shadow: 2px 2px 0 #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .modal-card { background: #2a2418; border: 2px solid #f4ecd8; box-shadow: 6px 6px 0 #6b8cff; color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .modal-close { background: #FF5E5B; color: #1a1812; border: 1.5px solid #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .subject-card { background: #2a2418; border: 2px solid #f4ecd8; box-shadow: 4px 4px 0 #6b8cff; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .ch-row { background: #2a2418; border: 1.5px solid #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .ch-row:hover { background: rgba(107, 140, 255, 0.15); }
+body[data-ui-theme="riso"][data-app-theme="dark"] .ch-num { background: #FF5E5B; color: #1a1812; border-color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .ch-title, body[data-ui-theme="riso"][data-app-theme="dark"] .sc-title { color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .saved-item { background: #2a2418 !important; border: 2px solid #f4ecd8; box-shadow: 3px 3px 0 #FF5E5B; color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .saved-item .si-title { color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .saved-item .si-voice { background: #6b8cff; color: #1a1812; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .quiz-card { background: #2a2418; border: 2px solid #f4ecd8; box-shadow: 4px 4px 0 #FF5E5B; color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .quiz-question, body[data-ui-theme="riso"][data-app-theme="dark"] .quiz-meta { color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .quiz-option { background: #1a1812; border: 1.5px solid #f4ecd8; color: #f4ecd8; box-shadow: 2px 2px 0 #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .quiz-option.correct { background: #6b8cff; color: #1a1812; box-shadow: 2px 2px 0 #FF5E5B; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .quiz-option.incorrect { background: #FF5E5B; color: #1a1812; box-shadow: 2px 2px 0 #6b8cff; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .qo-label { background: #f4ecd8; color: #1a1812; }
+body[data-ui-theme="riso"][data-app-theme="dark"] #askInput { background: #1a1812; border: 2px solid #f4ecd8; color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .ask-answer { background: #1a1812; border: 2px solid #6b8cff; color: #f4ecd8; box-shadow: 3px 3px 0 #6b8cff; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .new-subject-form { border: 2px dashed #f4ecd8; background: rgba(255, 255, 255, 0.03); }
+body[data-ui-theme="riso"][data-app-theme="dark"] .new-subject-form input { background: #1a1812; border: 1.5px solid #f4ecd8; color: #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .toast { background: #2a2418; border: 2px solid #f4ecd8; color: #f4ecd8; box-shadow: 3px 3px 0 #FF5E5B; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .ra-icon { background: #2a2418; color: #f4ecd8; border-color: #f4ecd8; box-shadow: 2px 2px 0 #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .voice-badge { background: #2a2418; color: #f4ecd8; border-color: #f4ecd8; box-shadow: 2px 2px 0 #f4ecd8; }
+body[data-ui-theme="riso"][data-app-theme="dark"] .cu-custom-input { background: #1a1812; border: 2px solid #f4ecd8; color: #f4ecd8; }
+
+/* ---------- SOFT PASTEL — DARK variant ---------- */
+body[data-ui-theme="pastel"][data-app-theme="dark"] { background: #2a1f1c; color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .upload-card { background: #3a2d28; border: 1px solid rgba(255, 233, 208, 0.08); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] h1 {
+  background: linear-gradient(135deg, #FFB1B8 0%, #C4B0F5 60%, #C8E6C8 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body[data-ui-theme="pastel"][data-app-theme="dark"] .sub,
+body[data-ui-theme="pastel"][data-app-theme="dark"] .hint,
+body[data-ui-theme="pastel"][data-app-theme="dark"] .stats-badge,
+body[data-ui-theme="pastel"][data-app-theme="dark"] .modal-sub { color: #c4a89a; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .cu-label { color: #c4a89a; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .drop-zone { border: 2px dashed #6a4a44; background: linear-gradient(135deg, #3a2d28 0%, #4a342f 100%); }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .dz-icon { background: linear-gradient(135deg, #FF8FA3, #B8A0F0); color: white; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .dz-text { color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .cu-chip { background: #3a2d28; border-color: #5a4a44; color: #ffe9d0; box-shadow: 0 3px 0 #2a1f1c; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .cu-chip:hover { background: #4a3a35; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .cu-chip.active { background: linear-gradient(135deg, #FF8FA3, #FFB1B8); border-color: #FF8FA3; color: white; box-shadow: 0 3px 0 #c87884; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .ghost-btn { background: #3a2d28; border-color: #5a4a44; color: #ffe9d0; box-shadow: 0 2px 0 #2a1f1c; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .modal-card { background: #3a2d28; border-color: rgba(255, 233, 208, 0.1); color: #ffe9d0; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .modal-close { background: rgba(255, 233, 208, 0.08); color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .voice-badge { background: linear-gradient(135deg, #B8DFB6, #C8E6C8); color: #2a3a2a; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .subject-card { background: #3a2d28; border-color: rgba(255, 233, 208, 0.08); }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .ch-row { background: rgba(255, 233, 208, 0.04); border-color: rgba(255, 233, 208, 0.06); }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .ch-row:hover { background: rgba(255, 143, 163, 0.12); }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .ch-title, body[data-ui-theme="pastel"][data-app-theme="dark"] .sc-title { color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .ch-meta, body[data-ui-theme="pastel"][data-app-theme="dark"] .sc-meta { color: #c4a89a; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .saved-item { background: #3a2d28 !important; border-color: rgba(255, 233, 208, 0.08); color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .saved-item .si-title { color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .saved-item .si-narr { color: #c4a89a; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .quiz-card { background: rgba(58, 45, 40, 0.92); border-color: rgba(255, 217, 183, 0.4); color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .quiz-question, body[data-ui-theme="pastel"][data-app-theme="dark"] .quiz-meta { color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .quiz-option { background: #2a1f1c; border-color: #5a4a44; color: #ffe9d0; box-shadow: 0 3px 0 #1a0f0c; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .quiz-option:hover:not(:disabled) { background: #3a2d28; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .quiz-option.correct { background: rgba(143, 213, 141, 0.25); border-color: #8FD58D; color: #d8f5d6; box-shadow: 0 3px 0 #5a8c5a; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .quiz-option.incorrect { background: rgba(255, 143, 163, 0.25); border-color: #FF8FA3; color: #ffd0db; box-shadow: 0 3px 0 #c87884; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .qo-label { background: #FFD9B7; color: #2a1f1c; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] #askInput { background: #2a1f1c; border-color: #5a4a44; color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .ask-answer { background: rgba(184, 160, 240, 0.15); border-color: rgba(184, 160, 240, 0.3); color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .new-subject-form { border: 2px dashed #5a4a44; background: rgba(58, 45, 40, 0.5); }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .new-subject-form input { background: #2a1f1c; border-color: #5a4a44; color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .toast { background: #3a2d28; border-color: #5a4a44; color: #ffe9d0; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .ra-icon { background: #3a2d28; color: #ffe9d0; border-color: #5a4a44; box-shadow: 0 3px 0 #2a1f1c; }
+body[data-ui-theme="pastel"][data-app-theme="dark"] .cu-custom-input { background: #2a1f1c; border-color: #5a4a44; color: #ffe9d0; }
