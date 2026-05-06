@@ -351,6 +351,168 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
   }
 });
 
+// ----- Streaming upload (Server-Sent Events) -----
+// Walks Gemini's streaming JSON output, extracts complete reel objects from
+// the partial response as soon as their closing `}` arrives, and emits each
+// over SSE. The client renders reels as they appear instead of waiting for
+// the whole response. Final quiz + chapter persistence happens at the end.
+function findReelsArrayStart(buffer) {
+  const m = buffer.match(/"reels"\s*:\s*\[/);
+  return m ? m.index + m[0].length : -1;
+}
+function extractCompleteReels(buffer, fromIdx) {
+  let i = fromIdx, depth = 0, inString = false, escape = false, reelStart = -1;
+  let advancedTo = fromIdx;
+  const reels = [];
+  while (i < buffer.length) {
+    const c = buffer[i];
+    if (escape) { escape = false; i++; continue; }
+    if (inString) {
+      if (c === "\\") escape = true;
+      else if (c === '"') inString = false;
+      i++; continue;
+    }
+    if (c === '"') { inString = true; i++; continue; }
+    if (c === "{") {
+      if (depth === 0) reelStart = i;
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0 && reelStart >= 0) {
+        try {
+          reels.push(JSON.parse(buffer.substring(reelStart, i + 1)));
+          advancedTo = i + 1;
+        } catch { break; }
+        reelStart = -1;
+      }
+    } else if (c === "]" && depth === 0) {
+      advancedTo = i + 1;
+      break;
+    }
+    i++;
+  }
+  return { reels, advancedTo };
+}
+
+app.post("/api/upload-stream", requireAuth, upload.single("file"), async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // disable proxy buffering
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const send = (event, data) => {
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      if (typeof res.flush === "function") res.flush();
+    } catch {}
+  };
+
+  const filePath = req.file?.path;
+  let final = null;
+  let emitted = 0;
+
+  try {
+    if (!req.file) { send("error", { error: "No file uploaded" }); return res.end(); }
+
+    const settings = {
+      vibe: req.body.vibe,
+      length: req.body.length,
+      quizDifficulty: req.body.quizDifficulty,
+      language: req.body.language,
+      vibeCustom: req.body.vibeCustom,
+      quizDifficultyCustom: req.body.quizDifficultyCustom,
+      languageCustom: req.body.languageCustom,
+      format: req.body.format,
+    };
+
+    const content = await extractContentForGemini(filePath, req.file.originalname, req.file.mimetype);
+    const userParts = [{ text: buildReelPrompt(settings) }];
+    if (content.kind === "fileRef") {
+      userParts.push({ fileData: { fileUri: content.uri, mimeType: content.mimeType } });
+    } else {
+      userParts.push({ text: `\n\nFILE CONTENT:\n${content.text}` });
+    }
+
+    send("start", { ts: Date.now() });
+    // Heartbeat so phone WebView keeps the connection alive while Gemini thinks
+    const heartbeat = setInterval(() => { try { res.write(": ping\n\n"); } catch {} }, 15000);
+
+    const stream = await ai.models.generateContentStream({
+      model: TEXT_MODEL,
+      contents: [{ role: "user", parts: userParts }],
+      config: { responseMimeType: "application/json", temperature: 0.8 },
+    });
+
+    let buffer = "";
+    let arrayStart = -1;
+    let cursor = -1;
+
+    for await (const chunk of stream) {
+      buffer += chunk?.text || "";
+      if (arrayStart < 0) {
+        arrayStart = findReelsArrayStart(buffer);
+        if (arrayStart < 0) continue;
+        cursor = arrayStart;
+      }
+      const { reels, advancedTo } = extractCompleteReels(buffer, cursor);
+      cursor = advancedTo;
+      for (const reel of reels) {
+        send("reel", { reel });
+        emitted++;
+      }
+    }
+
+    clearInterval(heartbeat);
+
+    // Parse the full response for quiz + title (and any reels we might have missed)
+    try { final = JSON.parse(buffer); }
+    catch {
+      const m = buffer.match(/\{[\s\S]*\}/);
+      if (m) try { final = JSON.parse(m[0]); } catch {}
+    }
+    if (final && Array.isArray(final.reels)) {
+      for (let i = emitted; i < final.reels.length; i++) {
+        send("reel", { reel: final.reels[i] });
+        emitted++;
+      }
+    }
+    if (final?.quiz?.length) send("quiz", { quiz: final.quiz });
+    if (final?.title) send("title", { title: final.title });
+
+    // Persist as chapter if subject was selected
+    const subjectId = (req.body.subjectId || "").trim();
+    if (subjectId && final?.reels?.length) {
+      const subj = db.getSubject(subjectId);
+      if (subj && subj.userId === req.user.id) {
+        try {
+          const chapterTitle = (req.body.chapterTitle || "").trim() || final.title || req.file.originalname;
+          const chapter = db.createChapter({
+            subjectId,
+            title: chapterTitle,
+            reels: final.reels,
+            quiz: final.quiz || [],
+            settings,
+            fileName: req.file.originalname,
+          });
+          send("chapter", { chapter });
+        } catch (e) {
+          console.warn("[stream] failed to save chapter:", e.message);
+        }
+      }
+    }
+
+    send("done", { reelCount: emitted });
+    res.end();
+  } catch (e) {
+    console.error("upload-stream error:", e);
+    send("error", { error: e.message || "Stream failed" });
+    res.end();
+  } finally {
+    if (filePath && fs.existsSync(filePath)) fs.unlink(filePath, () => {});
+  }
+});
+
 app.post("/api/image", requireAuth, async (req, res) => {
   try {
     const { prompt, imageStyle, imageStyleCustom } = req.body;

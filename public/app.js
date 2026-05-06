@@ -590,6 +590,16 @@ async function generate() {
     loadingSub.textContent  = t(phraseKeys[i][1]);
   }, 2400);
 
+  // Try streaming first — first reel plays while the rest are still being
+  // generated. Fall back to /api/upload if anything goes sideways.
+  try {
+    await generateStreaming(loadingInterval);
+    return;
+  } catch (streamErr) {
+    console.warn("Streaming failed, falling back to /api/upload:", streamErr);
+    // continue into the non-streaming code below
+  }
+
   try {
     // Resolve subject: handle "+ New subject" inline-create here
     let subjectId = settings.subject || "";
@@ -1032,6 +1042,13 @@ function hexToGlow(hex) {
 
 // ----- Visibility / playback -----
 function observeReels() {
+  // Streaming path defines ensureReelsObserver — reuse it if available so we
+  // don't spawn a fresh observer per render. Fallback to a one-shot observer.
+  if (typeof ensureReelsObserver === "function") {
+    ensureReelsObserver();
+    reelsContainer.querySelectorAll(".reel").forEach((r) => reelsObserver.observe(r));
+    return;
+  }
   const io = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -2056,6 +2073,212 @@ function backgroundFillAllAssets() {
     }
   };
   worker(); worker(); // 2 concurrent
+}
+
+// =============================================================
+//  Streaming upload (Server-Sent Events) — first reel plays while
+//  the rest are still being generated.
+// =============================================================
+function parseSSEEvent(text) {
+  if (!text || !text.trim()) return null;
+  let event = "message";
+  let dataStr = "";
+  for (const line of text.split("\n")) {
+    if (line.startsWith(":")) continue; // SSE comment / heartbeat
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+  }
+  if (!dataStr) return null;
+  try { return { event, data: JSON.parse(dataStr) }; } catch { return null; }
+}
+
+let reelsObserver = null;
+function ensureReelsObserver() {
+  if (reelsObserver) return reelsObserver;
+  reelsObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.intersectionRatio >= 0.7) {
+          const idx = Number(entry.target.dataset.idx);
+          activateReel(entry.target, idx);
+        }
+      }
+    },
+    { threshold: [0, 0.5, 0.7, 0.9, 1], root: reelsContainer }
+  );
+  return reelsObserver;
+}
+function observeNewReel(el) { ensureReelsObserver().observe(el); }
+
+function updateProgressSegmentsAndCounts() {
+  const total = reelsContainer.children.length;
+  Array.from(reelsContainer.children).forEach((reelEl, slotIdx) => {
+    const progress = reelEl.querySelector(".reel-progress");
+    if (progress) {
+      while (progress.children.length < total) {
+        const seg = document.createElement("div");
+        seg.className = "seg";
+        const fill = document.createElement("span");
+        fill.className = "fill";
+        seg.appendChild(fill);
+        progress.appendChild(seg);
+      }
+      Array.from(progress.children).forEach((seg, i) => {
+        seg.classList.toggle("done", i < slotIdx);
+      });
+    }
+    const right = reelEl.querySelector(".reel-meta .rm-right");
+    if (right) right.innerHTML = `${slotIdx + 1} <span class="rm-sep">/</span> ${total}`;
+    reelEl.dataset.idx = String(slotIdx);
+  });
+}
+
+let firstReelShown = false;
+
+function appendStreamingReel(reel) {
+  const reelInternalIdx = currentReels.length;
+  currentReels.push(reel);
+  const slotIdx = reelsContainer.children.length;
+  const reelEl = buildReel(reel, slotIdx, slotIdx + 1);
+  reelsContainer.appendChild(reelEl);
+  observeNewReel(reelEl);
+  updateProgressSegmentsAndCounts();
+
+  // Pre-warm assets immediately
+  ensureImage(reelInternalIdx);
+  ensureAudio(reelInternalIdx);
+
+  if (!firstReelShown && slotIdx === 0) {
+    firstReelShown = true;
+    showScreen("reels");
+    sfx("fanfare"); haptic([15, 30, 15]);
+    setMascotState("idle", 0);
+    requestAnimationFrame(() => {
+      reelEl.scrollIntoView({ behavior: "instant", block: "start" });
+      activateReel(reelEl, 0);
+    });
+  }
+}
+
+function appendStreamingQuiz() {
+  if (!currentQuiz.length) return;
+  const slotIdx = reelsContainer.children.length;
+  const quizEl = buildQuizReel(slotIdx, slotIdx + 1);
+  reelsContainer.appendChild(quizEl);
+  observeNewReel(quizEl);
+  updateProgressSegmentsAndCounts();
+}
+
+async function generateStreaming(loadingInterval) {
+  // Resolve subject (same as non-streaming path)
+  let subjectId = settings.subject || "";
+  if (subjectId === "__new") {
+    const name = (newSubjectInput?.value || "").trim();
+    if (!name) {
+      clearInterval(loadingInterval);
+      showScreen("upload");
+      showToast(t("err_type_first"));
+      throw new Error("subject required");
+    }
+    try {
+      const subj = await createSubject({ title: name, emoji: "📚", color: "#6b8cff" });
+      subjectId = subj.id;
+      settings.subject = subj.id;
+      saveSettings();
+      await refreshSubjectChips();
+    } catch (e) {
+      clearInterval(loadingInterval);
+      showScreen("upload");
+      showToast(e.message || t("toast_subject_create_failed"));
+      throw e;
+    }
+  }
+  const chapterTitle = (chapterTitleInput?.value || "").trim();
+
+  const fd = new FormData();
+  fd.append("file", selectedFile);
+  fd.append("vibe", settings.vibe);
+  fd.append("length", settings.length);
+  fd.append("quizDifficulty", settings.quizDifficulty);
+  fd.append("language", settings.language);
+  fd.append("vibeCustom", settings.vibeCustom || "");
+  fd.append("quizDifficultyCustom", settings.quizDifficultyCustom || "");
+  fd.append("languageCustom", settings.languageCustom || "");
+  fd.append("format", settings.format || "solo");
+  if (subjectId) fd.append("subjectId", subjectId);
+  if (chapterTitle) fd.append("chapterTitle", chapterTitle);
+
+  // Reset state
+  currentReels = [];
+  currentQuiz = [];
+  currentChapterId = null;
+  imageCache.clear(); imageInflight.clear();
+  audioCache.clear(); audioInflight.clear();
+  reelsContainer.innerHTML = "";
+  firstReelShown = false;
+
+  const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  const response = await fetch("/api/upload-stream", { method: "POST", headers, body: fd });
+  if (!response.ok || !response.body) {
+    throw new Error(`Stream init failed (HTTP ${response.status})`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let sawAnyReel = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const events = buf.split("\n\n");
+    buf = events.pop() || "";
+    for (const evtText of events) {
+      const evt = parseSSEEvent(evtText);
+      if (!evt) continue;
+      const { event, data } = evt;
+      if (event === "start") {
+        // ready
+      } else if (event === "reel" && data.reel) {
+        appendStreamingReel(data.reel);
+        sawAnyReel = true;
+      } else if (event === "quiz") {
+        currentQuiz = data.quiz || [];
+        appendStreamingQuiz();
+      } else if (event === "title") {
+        currentDoc = currentDoc || {};
+        currentDoc.title = data.title;
+      } else if (event === "chapter") {
+        currentChapterId = data.chapter?.id || null;
+      } else if (event === "error") {
+        clearInterval(loadingInterval);
+        if (!sawAnyReel) {
+          // No reels arrived — abort streaming so we fall back
+          throw new Error(data.error || "stream error");
+        } else {
+          showToast(data.error || "Stream error");
+        }
+      } else if (event === "done") {
+        // finished
+      }
+    }
+  }
+  // Flush any tail
+  if (buf.trim()) {
+    const evt = parseSSEEvent(buf);
+    if (evt && evt.event === "reel" && evt.data.reel) appendStreamingReel(evt.data.reel);
+  }
+
+  clearInterval(loadingInterval);
+
+  if (!sawAnyReel) {
+    throw new Error("Stream ended with zero reels");
+  }
+  if (chapterTitleInput) chapterTitleInput.value = "";
+
+  // Background-fill assets for ALL reels with 2 concurrent workers
+  if (typeof backgroundFillAllAssets === "function") setTimeout(backgroundFillAllAssets, 600);
 }
 
 // =============================================================
