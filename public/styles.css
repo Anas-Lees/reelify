@@ -586,6 +586,32 @@ h1 {
 }
 .reel.paused .play-icon { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
+/* Tap-to-start label only shown when autoplay was blocked */
+.play-icon-label {
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: white;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+  display: none;
+}
+.reel.needs-tap .play-icon {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.15);
+  background: rgba(0,0,0,0.6);
+  animation: needs-tap-pulse 1.6s ease-in-out infinite;
+}
+.reel.needs-tap .play-icon-label { display: block; }
+@keyframes needs-tap-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
+  50%      { box-shadow: 0 0 0 14px rgba(255,255,255,0); }
+}
+
 .close-btn {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0) + 12px);

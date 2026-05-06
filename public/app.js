@@ -193,6 +193,7 @@ const I18N = {
     format_podcast: "🎙 Podcast (2 voices)",
     voice_a_suffix: " A",
     surprise_toast: "🎲 Random preset rolled",
+    tap_to_start: "Tap to start",
   },
 
   ar: {
@@ -298,6 +299,7 @@ const I18N = {
     format_podcast: "🎙 بودكاست (صوتان)",
     voice_a_suffix: " أ",
     surprise_toast: "🎲 إعدادات عشوائية",
+    tap_to_start: "انقر للبدء",
   },
 };
 
@@ -323,6 +325,10 @@ function applyAppLang(lang) {
     const key = el.dataset.i18nPlaceholder;
     const txt = dict[key] || I18N.en[key];
     if (txt != null) el.placeholder = txt;
+  });
+  // Re-translate any dynamically-created labels (play-icon-label, etc.)
+  document.querySelectorAll(".play-icon-label").forEach((el) => {
+    el.textContent = t("tap_to_start");
   });
   document.documentElement.lang = lang;
   document.documentElement.dir = (lang === "ar") ? "rtl" : "ltr";
@@ -476,7 +482,7 @@ function onFile(file) {
   sfx("ding"); haptic(12); setMascotState("happy");
 }
 
-generateBtn.addEventListener("click", () => generate());
+generateBtn.addEventListener("click", () => { unlockAudio(); generate(); });
 retryBtn.addEventListener("click", () => showScreen("upload"));
 closeReelsBtn.addEventListener("click", closeReels);
 
@@ -660,6 +666,10 @@ function buildReel(reel, idx, total) {
 
   const playIcon = document.createElement("div");
   playIcon.className = "play-icon";
+  const playLabel = document.createElement("span");
+  playLabel.className = "play-icon-label";
+  playLabel.textContent = t("tap_to_start");
+  playIcon.appendChild(playLabel);
 
   const audioLoading = document.createElement("div");
   audioLoading.className = "audio-loading";
@@ -860,17 +870,25 @@ async function activateReel(reelEl, idx) {
   ensureImage(idx).then((url) => {
     if (!url || currentReelEl !== reelEl) return;
     const bg = reelEl.querySelector(".reel-bg");
-    // Pre-load so the swap is clean and the pop-in animates from a real image
     const pre = new Image();
     pre.onload = () => {
       if (!reelEl.isConnected) return;
+      // Inline-set EVERY background property so the placeholder shorthand
+      // (which set bg-size to auto) can't leave us with native-size top-left.
+      bg.style.background = "none";
       bg.style.backgroundImage = `url("${url}")`;
+      bg.style.backgroundSize = "cover";
+      bg.style.backgroundPosition = "center center";
+      bg.style.backgroundRepeat = "no-repeat";
       bg.classList.remove("placeholder");
       bg.classList.remove("img-loaded");
       void bg.offsetWidth;
       bg.classList.add("img-loaded");
     };
-    pre.onerror = () => console.warn("image preload failed", url);
+    pre.onerror = () => {
+      console.warn("image preload failed", url);
+      showToast("Image failed to load");
+    };
     pre.src = url;
   });
 
@@ -965,6 +983,7 @@ function togglePlay(reelEl) {
   if (currentAudio.paused) {
     currentAudio.play().catch(() => {});
     reelEl.classList.remove("paused");
+    reelEl.classList.remove("needs-tap");
   } else {
     currentAudio.pause();
     reelEl.classList.add("paused");
@@ -996,6 +1015,7 @@ async function speakReel(reelEl, idx) {
     audioUrl = await ensureAudio(idx);
   } catch (e) {
     console.warn("TTS failed, using browser fallback", e);
+    showToast("Voice unavailable, using device voice");
     reelEl.classList.remove("loading-audio");
     return browserSpeakReel(reelEl, idx, chunkEls);
   }
@@ -1112,8 +1132,11 @@ async function speakReel(reelEl, idx) {
 
   try {
     await audio.play();
-  } catch {
+  } catch (err) {
+    // Mobile autoplay was blocked — show a big "tap to start" overlay
     reelEl.classList.add("paused");
+    reelEl.classList.add("needs-tap");
+    console.warn("autoplay blocked", err);
   }
 }
 
@@ -1767,11 +1790,29 @@ let sfxOn = (() => {
 })();
 function setSfxOn(v) { sfxOn = !!v; try { localStorage.setItem("reelify-sfx", v ? "1" : "0"); } catch {} }
 
-// Auto-resume audio context after first user gesture (browsers require this)
-window.addEventListener("pointerdown", () => {
+// Unlock audio (both Web Audio + HTMLAudioElement) on the first user gesture.
+// Mobile browsers block audio.play() unless we've already played *something*
+// in a user-gesture chain. Trick: play 50ms of silent base64 WAV during the
+// first tap so subsequent .play() calls are allowed.
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
   const c = getAudioCtx();
   if (c?.state === "suspended") c.resume().catch(() => {});
-}, { once: true, passive: true });
+  try {
+    const silent = new Audio(
+      "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
+    );
+    silent.muted = true;
+    silent.volume = 0;
+    const p = silent.play();
+    if (p && p.then) p.then(() => silent.pause()).catch(() => {});
+  } catch {}
+}
+window.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
+window.addEventListener("touchstart",  unlockAudio, { once: true, passive: true });
+window.addEventListener("click",       unlockAudio, { once: true, passive: true });
 
 function tone({ freq = 440, type = "sine", dur = 0.18, vol = 0.12, attack = 0.005, release = 0.08, freqEnd = null, delay = 0 }) {
   if (!sfxOn) return;
