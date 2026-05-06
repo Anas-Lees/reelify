@@ -45,12 +45,11 @@ const DEFAULT_SETTINGS = {
   quizDifficulty: "medium",
   language: "en",
   voiceOverride: "auto",
-  theme: "pink",
   autoAdvance: "on",
   // App-wide UI settings
   appTheme: "dark",     // dark | light | auto (only applies when uiTheme = default)
   uiTheme: "default",   // default | editorial | glass | riso | pastel
-  appLang: "en",        // UI language
+  appLang: "en",        // UI language: en | ar
   // Subject the user picked on the upload screen (if any) for chapter saving
   subject: "",
   // Custom free-text overrides — used only when the corresponding chip is set to "custom"
@@ -67,21 +66,6 @@ try {
 function saveSettings() {
   try { localStorage.setItem("reelify-settings", JSON.stringify(settings)); } catch {}
 }
-
-// ----- Theme accents -----
-const THEMES = {
-  pink:   { a1: "#ff3b6b", a2: "#6b8cff" },
-  blue:   { a1: "#4dabf7", a2: "#845ef7" },
-  green:  { a1: "#51cf66", a2: "#fcc419" },
-  purple: { a1: "#cc5de8", a2: "#ff6b6b" },
-  orange: { a1: "#ff8c42", a2: "#ff3b6b" },
-};
-function applyTheme(t) {
-  const c = THEMES[t] || THEMES.pink;
-  document.body.style.setProperty("--accent", c.a1);
-  document.body.style.setProperty("--accent-2", c.a2);
-}
-applyTheme(settings.theme);
 
 // ----- App theme (dark / light / auto) -----
 function applyAppTheme(t) {
@@ -101,114 +85,218 @@ function applyUiTheme(t) {
 }
 applyUiTheme(settings.uiTheme);
 
-// ----- I18N (UI strings) -----
+// ----- I18N (UI strings — EN + AR only) -----
 const I18N = {
   en: {
-    library: "Library", settings: "Settings",
+    // Top bar / shell
+    library: "Library", settings: "Settings", create: "Create", cancel: "Cancel", remove: "Remove",
+    // Upload screen hero
     hero_title: "Drop a file. Get reels.",
     hero_sub: "PDF, Word, PowerPoint, images, text — Gemini reads it, packs it into bite-size scrolling reels with AI visuals, voiceover and synced captions.",
-    save_to: "Save to subject", dont_save: "🗑 Don't save", new_subject: "+ New subject",
+    drop_text: "Tap or drop a file here",
+    drop_size: "Up to 100 MB",
+    generate: "Generate Reels",
+    tip_main: "Tap to pause · double-tap to ❤ · scroll for next",
+    tip_reels: "Tap edges to skip · double-tap to ❤ · scroll for next",
+    // Customize panel labels
+    label_vibe: "Vibe", label_look: "Look", label_length: "Length", label_pace: "Pace",
+    label_quiz: "Quiz", label_language: "Narration language", label_voice: "Voice",
+    label_auto_advance: "Auto-play next", label_save_to: "Save to subject",
+    label_app_style: "App style", label_app_theme: "App theme", label_app_lang: "App language",
+    // Vibe + custom
+    vibe_educational: "⚡ Educational", vibe_fun: "🎉 Fun", vibe_dramatic: "🎭 Dramatic",
+    vibe_chill: "🧘 Chill", vibe_genz: "🤓 Gen-Z", chip_custom: "✏ Custom",
+    vibe_custom_ph: "e.g. Attack on Titan style — dramatic anime monologues",
+    // Look
+    look_photo: "📷 Photo", look_3d: "✨ 3D", look_watercolor: "🎨 Watercolor",
+    look_anime: "🌸 Anime", look_neon: "🌃 Neon", look_vintage: "📜 Vintage", look_oil: "🖼 Oil",
+    look_custom_ph: "e.g. Studio Ghibli style, hand-painted, soft warm light",
+    // Length / Pace / Quiz
+    length_short: "📌 Quick", length_standard: "📚 Standard", length_long: "🎬 Deep dive",
+    pace_chill: "🐢 Chill", pace_normal: "🚶 Normal", pace_fast: "🏃 Fast",
+    quiz_easy: "🌱 Easy", quiz_medium: "🌿 Medium", quiz_hard: "🌳 Hard",
+    quiz_custom_ph: "e.g. Trick questions, focus on dates",
+    lang_custom_ph: "e.g. Pirate English, Old English, Shakespearean",
+    // Voice + auto-advance
+    voice_auto: "🤖 AI picks",
+    autoadvance_on: "▶ On", autoadvance_off: "⏸ Off",
+    // App style
+    style_default: "🌑 Default", style_editorial: "📰 Editorial",
+    style_glass: "💎 Liquid Glass", style_riso: "📜 Risograph", style_pastel: "🌸 Soft Pastel",
+    // App theme
+    apptheme_dark: "🌙 Dark", apptheme_light: "☀ Light", apptheme_auto: "🎚 Auto",
+    // Subject picker
+    subj_dont_save: "🗑 Don't save", subj_new: "+ New subject",
     new_subject_short: "New subject",
-    new_subject_placeholder: 'Subject name (e.g. "Biology")',
-    chapter_title_placeholder: 'Chapter title (e.g. "Chapter 1: Cells") — optional',
+    new_subject_placeholder: "Subject name (e.g. Biology)",
+    chapter_title_placeholder: "Chapter title — optional",
+    // Stats
     saved: "Saved", stats_reels: "reels watched", stats_perfect: "perfect",
-    generate: "Generate Reels", tip_main: "Tip: tap to pause · double-tap to ❤ · scroll for next",
-    saved_reels: "Saved reels", saved_empty: "Tap ★ on any reel to save it here.",
-    library_empty: 'No subjects yet. Click "+ New subject" to start a library.',
-    app_theme: "App theme", app_lang: "App language",
+    // Settings note
     settings_note: "App language only changes the interface — narration language is set per upload.",
+    // Library
+    library_empty: 'No subjects yet. Tap "+ New subject" to start a library.',
+    chapters: "chapters", chapter: "chapter",
+    no_chapters: "No chapters yet. Tap + to add one.",
+    delete_subject_confirm: 'Delete "{title}" and all its chapters?',
+    delete_chapter_confirm: 'Delete "{title}"?',
+    upload_for_subject: "Upload your next chapter for {title}",
+    // Saved gallery
+    saved_reels: "Saved reels",
+    saved_empty: "Tap ★ on any reel to save it here.",
+    // Quiz
+    quiz_title_card: "Quick Quiz", quiz_subtitle: "Test what you just learned",
+    quiz_correct: "✓ Correct.", quiz_incorrect: "✗ Not quite.",
+    quiz_next: "Next →", quiz_retry: "Try again", quiz_restart: "Upload new file",
+    quiz_time: "Quiz time",
+    score_perfect: "Perfect score! You absorbed it all.",
+    score_great: "Great work — you really listened.",
+    score_decent: "Not bad. A second pass will lock it in.",
+    score_keep_going: "Solid effort. Re-watch the reels and try again.",
+    streak_in_a_row: "in a row",
+    // Ask AI
+    ask_title: "Ask anything", ask_about: "About: {title}",
+    ask_placeholder: "What do you want to know?",
+    ask_button: "Ask", ask_thinking: "Thinking…",
+    ask_no_answer: "(no answer)", ask_failed: "Sorry — couldn't get an answer.",
+    // Loading
+    loading_reading: "Reading your file…",
+    loading_reading_sub: "Gemini is finding the gold inside.",
+    loading_grouping: "Grouping the ideas…",
+    loading_grouping_sub: "Packing related bits into the same reel.",
+    loading_writing: "Writing the scripts…",
+    loading_writing_sub: "Punchy hooks, easy listening.",
+    loading_voices: "Casting voices…",
+    loading_voices_sub: "Each reel gets its own narrator.",
+    loading_almost: "Almost there…",
+    loading_almost_sub: "Cooking up the reel structure.",
+    // Toasts
+    toast_shared: "Shared",
+    toast_copied: "Copied to clipboard",
+    toast_share_failed: "Couldn't share",
+    toast_copied_short: "Copied",
+    toast_saved: "Saved ★",
+    toast_removed: "Removed",
+    toast_subject_required: "Subject name required",
+    toast_subject_create_failed: "Could not create subject",
+    // Errors
+    err_title: "Something went wrong",
+    err_unknown: "Unknown error",
+    err_no_reels: "No reels were generated",
+    err_upload_failed: "Upload failed",
+    err_type_first: "Type a subject name first",
   },
-  es: {
-    library: "Biblioteca", settings: "Ajustes",
-    hero_title: "Suelta un archivo. Obtén reels.",
-    hero_sub: "PDF, Word, PowerPoint, imágenes, texto — Gemini lo lee y lo convierte en reels con visuales IA, voz y subtítulos sincronizados.",
-    save_to: "Guardar en tema", dont_save: "🗑 No guardar", new_subject: "+ Nuevo tema",
-    new_subject_short: "Nuevo tema",
-    new_subject_placeholder: 'Nombre del tema (ej. "Biología")',
-    chapter_title_placeholder: 'Título del capítulo (ej. "Capítulo 1: Células") — opcional',
-    saved: "Guardados", stats_reels: "reels vistos", stats_perfect: "perfectos",
-    generate: "Generar Reels", tip_main: "Toca para pausar · doble toque para ❤ · desliza al siguiente",
-    saved_reels: "Reels guardados", saved_empty: "Toca ★ en cualquier reel para guardarlo aquí.",
-    library_empty: 'Aún no hay temas. Toca "+ Nuevo tema" para empezar tu biblioteca.',
-    app_theme: "Tema de la app", app_lang: "Idioma de la app",
-    settings_note: "El idioma solo cambia la interfaz — el idioma de la narración se elige al subir el archivo.",
-  },
-  fr: {
-    library: "Bibliothèque", settings: "Paramètres",
-    hero_title: "Glissez un fichier. Obtenez des reels.",
-    hero_sub: "PDF, Word, PowerPoint, images, texte — Gemini lit, regroupe et crée des reels avec visuels IA, voix off et sous-titres synchronisés.",
-    save_to: "Enregistrer dans un sujet", dont_save: "🗑 Ne pas enregistrer", new_subject: "+ Nouveau sujet",
-    new_subject_short: "Nouveau sujet",
-    new_subject_placeholder: 'Nom du sujet (ex. "Biologie")',
-    chapter_title_placeholder: 'Titre du chapitre (ex. "Chapitre 1: Cellules") — optionnel',
-    saved: "Enregistrés", stats_reels: "reels vus", stats_perfect: "parfaits",
-    generate: "Générer les reels", tip_main: "Touchez pour pause · double-touche pour ❤ · défilez pour le suivant",
-    saved_reels: "Reels enregistrés", saved_empty: "Touchez ★ sur un reel pour l'enregistrer ici.",
-    library_empty: 'Aucun sujet pour l\'instant. Cliquez "+ Nouveau sujet" pour commencer.',
-    app_theme: "Thème de l'app", app_lang: "Langue de l'app",
-    settings_note: "La langue ne change que l'interface — la langue de la narration se choisit à l'envoi.",
-  },
-  de: {
-    library: "Bibliothek", settings: "Einstellungen",
-    hero_title: "Datei ablegen. Reels erhalten.",
-    hero_sub: "PDF, Word, PowerPoint, Bilder, Text — Gemini liest, gruppiert und macht Reels mit KI-Bildern, Voiceover und synchronen Untertiteln.",
-    save_to: "In Thema speichern", dont_save: "🗑 Nicht speichern", new_subject: "+ Neues Thema",
-    new_subject_short: "Neues Thema",
-    new_subject_placeholder: 'Themenname (z.B. "Biologie")',
-    chapter_title_placeholder: 'Kapiteltitel (z.B. "Kapitel 1: Zellen") — optional',
-    saved: "Gespeichert", stats_reels: "Reels gesehen", stats_perfect: "perfekt",
-    generate: "Reels erstellen", tip_main: "Tippen zum Pausieren · Doppeltippen für ❤ · scrollen für das nächste",
-    saved_reels: "Gespeicherte Reels", saved_empty: "Tippe ★ auf ein Reel, um es hier zu speichern.",
-    library_empty: 'Noch keine Themen. Klicke "+ Neues Thema" um zu starten.',
-    app_theme: "App-Thema", app_lang: "App-Sprache",
-    settings_note: "Die App-Sprache ändert nur die Oberfläche — die Erzählsprache wird beim Hochladen gewählt.",
-  },
-  pt: {
-    library: "Biblioteca", settings: "Definições",
-    hero_title: "Solte um ficheiro. Receba reels.",
-    hero_sub: "PDF, Word, PowerPoint, imagens, texto — o Gemini lê e cria reels com visuais IA, narração e legendas sincronizadas.",
-    save_to: "Guardar em tema", dont_save: "🗑 Não guardar", new_subject: "+ Novo tema",
-    new_subject_short: "Novo tema",
-    new_subject_placeholder: 'Nome do tema (ex. "Biologia")',
-    chapter_title_placeholder: 'Título do capítulo (ex. "Capítulo 1: Células") — opcional',
-    saved: "Guardados", stats_reels: "reels vistos", stats_perfect: "perfeitos",
-    generate: "Gerar Reels", tip_main: "Toque para pausar · duplo toque para ❤ · deslize para o próximo",
-    saved_reels: "Reels guardados", saved_empty: "Toque ★ num reel para guardar aqui.",
-    library_empty: 'Ainda sem temas. Toque "+ Novo tema" para começar.',
-    app_theme: "Tema da app", app_lang: "Idioma da app",
-    settings_note: "O idioma só muda a interface — o idioma da narração é definido por upload.",
-  },
-  ja: {
-    library: "ライブラリ", settings: "設定",
-    hero_title: "ファイルを投下。リールを獲得。",
-    hero_sub: "PDF、Word、PowerPoint、画像、テキスト — Gemini が読み込み、AI ビジュアルとナレーション付きの縦リールに変換します。",
-    save_to: "テーマに保存", dont_save: "🗑 保存しない", new_subject: "+ 新規テーマ",
-    new_subject_short: "新規テーマ",
-    new_subject_placeholder: 'テーマ名（例: 「生物学」）',
-    chapter_title_placeholder: '章タイトル（任意・例: 「第1章: 細胞」）',
-    saved: "保存済み", stats_reels: "視聴したリール", stats_perfect: "全問正解",
-    generate: "リールを生成", tip_main: "タップで一時停止 · ダブルタップで ❤ · スクロールで次へ",
-    saved_reels: "保存したリール", saved_empty: "★ をタップしてここに保存。",
-    library_empty: 'テーマがまだありません。「+ 新規テーマ」で始めましょう。',
-    app_theme: "アプリのテーマ", app_lang: "アプリの言語",
-    settings_note: "アプリの言語はUIのみ — ナレーション言語はアップロード時に選択。",
-  },
+
   ar: {
-    library: "المكتبة", settings: "الإعدادات",
-    hero_title: "أَفلِت ملفًا. احصل على ريلز.",
-    hero_sub: "PDF، Word، PowerPoint، صور، نصوص — Gemini يقرأ ويحوّل المحتوى إلى ريلز عمودية مع مرئيات وتعليق صوتي وترجمة متزامنة.",
-    save_to: "حفظ في موضوع", dont_save: "🗑 عدم الحفظ", new_subject: "+ موضوع جديد",
+    library: "المكتبة", settings: "الإعدادات", create: "إنشاء", cancel: "إلغاء", remove: "إزالة",
+
+    hero_title: "أَفلِت ملفًا. واستلم ريلز.",
+    hero_sub: "PDF أو Word أو PowerPoint أو صور أو نصوص — يقرأها Gemini ويحوّلها إلى ريلز عمودية بصور ذكية وتعليق صوتي ونصوص متزامنة.",
+    drop_text: "انقر أو أَفلِت ملفًا هنا",
+    drop_size: "حتى 100 ميجابايت",
+    generate: "إنشاء الريلز",
+    tip_main: "انقر للإيقاف · انقر مرتين لـ ❤ · مرّر للتالي",
+    tip_reels: "انقر الحواف للتخطي · انقر مرتين لـ ❤ · مرّر للتالي",
+
+    label_vibe: "الطابع", label_look: "المظهر", label_length: "الطول", label_pace: "السرعة",
+    label_quiz: "الاختبار", label_language: "لغة الراوي", label_voice: "الصوت",
+    label_auto_advance: "تشغيل تلقائي للتالي", label_save_to: "حفظ في موضوع",
+    label_app_style: "نمط التطبيق", label_app_theme: "ثيم التطبيق", label_app_lang: "لغة التطبيق",
+
+    vibe_educational: "⚡ تعليمي", vibe_fun: "🎉 ممتع", vibe_dramatic: "🎭 درامي",
+    vibe_chill: "🧘 هادئ", vibe_genz: "🤓 جيل زد", chip_custom: "✏ مخصص",
+    vibe_custom_ph: "مثلاً: بأسلوب Attack on Titan — مونولوجات أنيمي درامية",
+
+    look_photo: "📷 صورة واقعية", look_3d: "✨ ثلاثي الأبعاد", look_watercolor: "🎨 ألوان مائية",
+    look_anime: "🌸 أنمي", look_neon: "🌃 نيون", look_vintage: "📜 كلاسيكي", look_oil: "🖼 زيتي",
+    look_custom_ph: "مثلاً: بأسلوب استوديو غيبلي — مرسوم يدويًا، إضاءة دافئة",
+
+    length_short: "📌 سريع", length_standard: "📚 معتاد", length_long: "🎬 شامل",
+    pace_chill: "🐢 بطيء", pace_normal: "🚶 عادي", pace_fast: "🏃 سريع",
+    quiz_easy: "🌱 سهل", quiz_medium: "🌿 متوسط", quiz_hard: "🌳 صعب",
+    quiz_custom_ph: "مثلاً: أسئلة خادعة، تركيز على التواريخ",
+    lang_custom_ph: "مثلاً: لهجة قديمة، إنجليزية شكسبيرية",
+
+    voice_auto: "🤖 يختار الذكاء",
+    autoadvance_on: "▶ تشغيل", autoadvance_off: "⏸ إيقاف",
+
+    style_default: "🌑 افتراضي", style_editorial: "📰 مجلة",
+    style_glass: "💎 زجاج سائل", style_riso: "📜 طباعة ريسو", style_pastel: "🌸 باستيل ناعم",
+
+    apptheme_dark: "🌙 داكن", apptheme_light: "☀ فاتح", apptheme_auto: "🎚 تلقائي",
+
+    subj_dont_save: "🗑 لا تحفظ", subj_new: "+ موضوع جديد",
     new_subject_short: "موضوع جديد",
-    new_subject_placeholder: 'اسم الموضوع (مثلاً "الأحياء")',
-    chapter_title_placeholder: 'عنوان الفصل (اختياري، مثلاً "الفصل 1: الخلايا")',
-    saved: "محفوظ", stats_reels: "ريلز تمت مشاهدتها", stats_perfect: "إجابات مثالية",
-    generate: "إنشاء الريلز", tip_main: "انقر للإيقاف · انقر مرتين لـ ❤ · مرّر للتالي",
-    saved_reels: "الريلز المحفوظة", saved_empty: "انقر ★ على أي ريل لحفظه هنا.",
-    library_empty: 'لا توجد مواضيع بعد. انقر "+ موضوع جديد" للبدء.',
-    app_theme: "ثيم التطبيق", app_lang: "لغة التطبيق",
+    new_subject_placeholder: "اسم الموضوع (مثلاً «الأحياء»)",
+    chapter_title_placeholder: "عنوان الفصل — اختياري",
+
+    saved: "محفوظ", stats_reels: "ريلز شُوهدت", stats_perfect: "إجابات كاملة",
+
     settings_note: "لغة التطبيق تغيّر الواجهة فقط — لغة الراوي تُختار عند الرفع.",
+
+    library_empty: "لا توجد مواضيع بعد. انقر «+ موضوع جديد» للبدء.",
+    chapters: "فصول", chapter: "فصل",
+    no_chapters: "لا توجد فصول بعد. انقر + لإضافة واحد.",
+    delete_subject_confirm: "حذف «{title}» وجميع فصوله؟",
+    delete_chapter_confirm: "حذف «{title}»؟",
+    upload_for_subject: "ارفع فصلك التالي إلى {title}",
+
+    saved_reels: "الريلز المحفوظة",
+    saved_empty: "انقر ★ على أي ريل لحفظه هنا.",
+
+    quiz_title_card: "اختبار سريع", quiz_subtitle: "اختبر ما تعلمته للتو",
+    quiz_correct: "✓ صحيح.", quiz_incorrect: "✗ ليس تماماً.",
+    quiz_next: "التالي ←", quiz_retry: "حاول مجدداً", quiz_restart: "ارفع ملفاً جديداً",
+    quiz_time: "وقت الاختبار",
+    score_perfect: "علامة كاملة! استوعبت كل شيء.",
+    score_great: "عمل رائع — أنصت جيدًا.",
+    score_decent: "ليس سيئاً. مرور ثانٍ يرسّخها.",
+    score_keep_going: "محاولة جيدة. أعد مشاهدة الريلز وحاول مجدداً.",
+    streak_in_a_row: "متتالية",
+
+    ask_title: "اسأل أي شيء", ask_about: "بشأن: {title}",
+    ask_placeholder: "ماذا تريد أن تعرف؟",
+    ask_button: "اسأل", ask_thinking: "أفكر…",
+    ask_no_answer: "(لا يوجد جواب)", ask_failed: "آسف — لم أحصل على جواب.",
+
+    loading_reading: "أقرأ ملفك…",
+    loading_reading_sub: "Gemini يبحث عن الذهب بالداخل.",
+    loading_grouping: "أجمع الأفكار…",
+    loading_grouping_sub: "أحزم القطع المرتبطة في ريل واحد.",
+    loading_writing: "أكتب النصوص…",
+    loading_writing_sub: "افتتاحيات قوية، استماع مريح.",
+    loading_voices: "أختار الأصوات…",
+    loading_voices_sub: "كل ريل يحصل على راوٍ خاص.",
+    loading_almost: "اقتربنا…",
+    loading_almost_sub: "أُعدّ بنية الريلز.",
+
+    toast_shared: "تمت المشاركة",
+    toast_copied: "نُسخ إلى الحافظة",
+    toast_share_failed: "تعذّرت المشاركة",
+    toast_copied_short: "نُسخ",
+    toast_saved: "محفوظ ★",
+    toast_removed: "أُزيل",
+    toast_subject_required: "اسم الموضوع مطلوب",
+    toast_subject_create_failed: "تعذّر إنشاء الموضوع",
+
+    err_title: "حدث خطأ ما",
+    err_unknown: "خطأ غير معروف",
+    err_no_reels: "لم يتم إنشاء ريلز",
+    err_upload_failed: "فشل الرفع",
+    err_type_first: "اكتب اسم الموضوع أولاً",
   },
 };
+
+function t(key, vars) {
+  const dict = I18N[settings.appLang] || I18N.en;
+  let s = dict[key] ?? I18N.en[key] ?? key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      s = s.replace(new RegExp(`\\{${k}\\}`, "g"), v);
+    }
+  }
+  return s;
+}
 
 function applyAppLang(lang) {
   const dict = I18N[lang] || I18N.en;
@@ -224,6 +312,7 @@ function applyAppLang(lang) {
   });
   document.documentElement.lang = lang;
   document.documentElement.dir = (lang === "ar") ? "rtl" : "ltr";
+  document.body.dataset.appLang = lang;
 }
 applyAppLang(settings.appLang);
 
@@ -322,7 +411,6 @@ document.querySelectorAll(".cu-chips").forEach((group) => {
     const val = chip.dataset.val;
     settings[name] = val;
     if (name === "pace") speedIdx = PACE_TO_SPEED_IDX[val] ?? 1;
-    if (name === "theme") applyTheme(val);
     if (name === "appTheme") applyAppTheme(val);
     if (name === "uiTheme") applyUiTheme(val);
     if (name === "appLang") applyAppLang(val);
@@ -377,21 +465,21 @@ async function generate() {
   if (!selectedFile) return;
   setMascotState("thinking", 0); // stays thinking while we work
   showScreen("loading");
-  loadingTitle.textContent = "Reading your file…";
-  loadingSub.textContent = "Gemini is finding the gold inside.";
+  loadingTitle.textContent = t("loading_reading");
+  loadingSub.textContent = t("loading_reading_sub");
 
-  const phrases = [
-    ["Reading your file…", "Gemini is finding the gold inside."],
-    ["Grouping the ideas…", "Packing related bits into the same reel."],
-    ["Writing the scripts…", "Punchy hooks, easy listening."],
-    ["Casting voices…", "Each reel gets its own narrator."],
-    ["Almost there…", "Cooking up the reel structure."],
+  const phraseKeys = [
+    ["loading_reading", "loading_reading_sub"],
+    ["loading_grouping", "loading_grouping_sub"],
+    ["loading_writing", "loading_writing_sub"],
+    ["loading_voices", "loading_voices_sub"],
+    ["loading_almost", "loading_almost_sub"],
   ];
   let i = 0;
   const loadingInterval = setInterval(() => {
-    i = (i + 1) % phrases.length;
-    loadingTitle.textContent = phrases[i][0];
-    loadingSub.textContent = phrases[i][1];
+    i = (i + 1) % phraseKeys.length;
+    loadingTitle.textContent = t(phraseKeys[i][0]);
+    loadingSub.textContent  = t(phraseKeys[i][1]);
   }, 2400);
 
   try {
@@ -402,7 +490,7 @@ async function generate() {
       if (!name) {
         clearInterval(loadingInterval);
         showScreen("upload");
-        showToast("Type a subject name first");
+        showToast(t("err_type_first"));
         return;
       }
       try {
@@ -414,7 +502,7 @@ async function generate() {
       } catch (e) {
         clearInterval(loadingInterval);
         showScreen("upload");
-        showToast(e.message || "Could not create subject");
+        showToast(e.message || t("toast_subject_create_failed"));
         return;
       }
     }
@@ -436,8 +524,8 @@ async function generate() {
     const data = await res.json();
     clearInterval(loadingInterval);
 
-    if (!res.ok) throw new Error(data.error || "Upload failed");
-    if (!data.reels?.length) throw new Error("No reels were generated");
+    if (!res.ok) throw new Error(data.error || t("err_upload_failed"));
+    if (!data.reels?.length) throw new Error(t("err_no_reels"));
 
     currentDoc = data;
     currentReels = data.reels;
@@ -467,8 +555,9 @@ async function generate() {
     setTimeout(() => firstHint.classList.remove("show"), 2800);
   } catch (e) {
     clearInterval(loadingInterval);
-    errorText.textContent = e.message || "Unknown error";
+    errorText.textContent = e.message || t("err_unknown");
     showScreen("error");
+    setMascotState("sad", 1500);
   }
 }
 
@@ -529,7 +618,7 @@ function buildReel(reel, idx, total) {
   const voice = reel.voice || "Aoede";
   meta.innerHTML =
     `<span class="rm-left"><span class="voice-badge">🎙 ${escapeHtml(voice)}</span></span>` +
-    `<span class="rm-right">${idx + 1} / ${total}</span>`;
+    `<span class="rm-right">${idx + 1} <span class="rm-sep">/</span> ${total}</span>`;
   top.append(progress, meta);
 
   const content = document.createElement("div");
@@ -590,7 +679,7 @@ function buildQuizReel(idx, total) {
   }
   const meta = document.createElement("div");
   meta.className = "reel-meta";
-  meta.innerHTML = `<span>Quiz time</span><span>Reelify</span>`;
+  meta.innerHTML = `<span>${escapeHtml(t("quiz_time"))}</span><span>Reelify</span>`;
   top.append(progress, meta);
 
   const quizWrap = document.createElement("div");
@@ -598,8 +687,8 @@ function buildQuizReel(idx, total) {
   quizWrap.innerHTML = `
     <div class="quiz-stage">
       <div class="quiz-header">
-        <h2 class="quiz-title">Quick Quiz</h2>
-        <p class="quiz-sub">Test what you just learned</p>
+        <h2 class="quiz-title">${escapeHtml(t("quiz_title_card"))}</h2>
+        <p class="quiz-sub">${escapeHtml(t("quiz_subtitle"))}</p>
       </div>
       <div class="quiz-card">
         <div class="quiz-meta-row">
@@ -609,7 +698,7 @@ function buildQuizReel(idx, total) {
         <h3 class="quiz-question"></h3>
         <div class="quiz-options"></div>
         <div class="quiz-feedback hidden"></div>
-        <button class="quiz-next hidden">Next →</button>
+        <button class="quiz-next hidden">${escapeHtml(t("quiz_next"))}</button>
       </div>
     </div>
     <div class="quiz-score hidden">
@@ -617,8 +706,8 @@ function buildQuizReel(idx, total) {
       <h2 class="score-num"></h2>
       <p class="score-msg"></p>
       <div class="score-actions">
-        <button class="quiz-retry">Try again</button>
-        <button class="quiz-restart">Upload new file</button>
+        <button class="quiz-retry">${escapeHtml(t("quiz_retry"))}</button>
+        <button class="quiz-restart">${escapeHtml(t("quiz_restart"))}</button>
       </div>
     </div>
   `;
@@ -1220,7 +1309,7 @@ function answer(choice) {
   fb.classList.remove("hidden");
   fb.classList.toggle("ok", choice === correct);
   fb.classList.toggle("bad", choice !== correct);
-  fb.innerHTML = (choice === correct ? "✓ Correct. " : "✗ Not quite. ") + escapeHtml(q.explanation || "");
+  fb.innerHTML = (choice === correct ? t("quiz_correct") + " " : t("quiz_incorrect") + " ") + escapeHtml(q.explanation || "");
 
   reelEl.querySelector(".quiz-next").classList.remove("hidden");
 }
@@ -1228,7 +1317,7 @@ function answer(choice) {
 function showStreak(reelEl, n) {
   const pill = reelEl.querySelector(".streak-pill");
   if (!pill) return;
-  pill.querySelector(".sp-num").textContent = String(n);
+  pill.querySelector(".sp-num").textContent = `${n} ${t("streak_in_a_row")}`;
   pill.classList.remove("hidden");
   pill.classList.remove("pop");
   void pill.offsetWidth; // restart anim
@@ -1278,11 +1367,11 @@ function showScore() {
 
   const total = currentQuiz.length;
   const ratio = correctCount / total;
-  let msg = "Solid effort. Re-watch the reels and try again.";
+  let msg = t("score_keep_going");
   let emoji = "💪";
-  if (ratio === 1) { msg = "Perfect score! You absorbed it all."; emoji = "🏆"; }
-  else if (ratio >= 0.7) { msg = "Great work — you really listened."; emoji = "🎉"; }
-  else if (ratio >= 0.4) { msg = "Not bad. A second pass will lock it in."; emoji = "👍"; }
+  if (ratio === 1) { msg = t("score_perfect"); emoji = "🏆"; }
+  else if (ratio >= 0.7) { msg = t("score_great"); emoji = "🎉"; }
+  else if (ratio >= 0.4) { msg = t("score_decent"); emoji = "👍"; }
 
   reelEl.querySelector(".score-emoji").textContent = emoji;
   reelEl.querySelector(".score-num").textContent = `${correctCount} / ${total}`;
@@ -1430,13 +1519,14 @@ shareBtn?.addEventListener("click", async (e) => {
   try {
     if (navigator.share) {
       await navigator.share({ title: reel.title, text });
-      showToast("Shared");
+      showToast(t("toast_shared"));
     } else {
       await navigator.clipboard.writeText(text);
-      showToast("Copied to clipboard");
+      showToast(t("toast_copied"));
     }
   } catch {
-    try { await navigator.clipboard.writeText(text); showToast("Copied"); } catch { showToast("Couldn't share"); }
+    try { await navigator.clipboard.writeText(text); showToast(t("toast_copied_short")); }
+    catch { showToast(t("toast_share_failed")); }
   }
 });
 
@@ -1504,7 +1594,7 @@ askBtn?.addEventListener("click", (e) => {
   const idx = Number(currentReelEl.dataset.idx);
   const reel = currentReels[idx];
   if (!reel) return;
-  askContextEl.textContent = `About: ${reel.title}`;
+  askContextEl.textContent = t("ask_about", { title: reel.title });
   askInput.value = "";
   askAnswer.classList.add("hidden");
   askAnswer.textContent = "";
@@ -1519,7 +1609,8 @@ askSubmit?.addEventListener("click", async () => {
   const idx = Number(currentReelEl.dataset.idx);
   const reel = currentReels[idx];
   askSubmit.disabled = true;
-  askSubmit.textContent = "Thinking…";
+  const originalLabel = askSubmit.textContent;
+  askSubmit.textContent = t("ask_thinking");
   askAnswer.classList.remove("hidden");
   askAnswer.textContent = "…";
   try {
@@ -1533,13 +1624,13 @@ askSubmit?.addEventListener("click", async () => {
       }),
     });
     const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Ask failed");
-    askAnswer.textContent = data.answer || "(no answer)";
+    if (!r.ok) throw new Error(data.error || t("ask_failed"));
+    askAnswer.textContent = data.answer || t("ask_no_answer");
   } catch (err) {
-    askAnswer.textContent = "Sorry — couldn't get an answer. " + (err.message || "");
+    askAnswer.textContent = t("ask_failed") + " " + (err.message || "");
   } finally {
     askSubmit.disabled = false;
-    askSubmit.textContent = "Ask";
+    askSubmit.textContent = t("ask_button");
   }
 });
 askInput?.addEventListener("keydown", (e) => {
@@ -1628,7 +1719,7 @@ saveBtn.onclick = (e) => {
   void saveBtn.offsetWidth;
   saveBtn.classList.add("popping");
   refreshStatsBadge();
-  showToast(nowSaved ? "Saved ★" : "Removed");
+  showToast(nowSaved ? t("toast_saved") : t("toast_removed"));
   sfx(nowSaved ? "ding" : "boop"); haptic(10);
 };
 
@@ -1900,14 +1991,14 @@ newSubjectBtn?.addEventListener("click", () => {
 nsCancel?.addEventListener("click", () => newSubjectForm.classList.add("hidden"));
 nsCreate?.addEventListener("click", async () => {
   const title = nsTitle.value.trim();
-  if (!title) return showToast("Subject name required");
+  if (!title) return showToast(t("toast_subject_required"));
   try {
     nsCreate.disabled = true;
     await createSubject({ title, emoji: (nsEmoji.value || "📚").slice(0, 3), color: nsColor.value });
     newSubjectForm.classList.add("hidden");
     await renderLibrary();
     refreshSubjectChips();
-  } catch (e) { showToast(e.message || "Failed"); }
+  } catch (e) { showToast(e.message || t("toast_subject_create_failed")); }
   finally { nsCreate.disabled = false; }
 });
 
@@ -1924,13 +2015,14 @@ async function renderLibrary() {
     const card = document.createElement("div");
     card.className = "subject-card";
     card.style.borderLeft = `4px solid ${s.color || "#6b8cff"}`;
+    const countLabel = s.chapterCount === 1 ? t("chapter") : t("chapters");
     card.innerHTML = `
       <div class="sc-head">
         <div class="sc-title"><span class="sc-emoji">${escapeHtml(s.emoji || "📚")}</span> ${escapeHtml(s.title)}</div>
         <div class="sc-meta">
-          <span>${s.chapterCount} chapter${s.chapterCount === 1 ? "" : "s"}</span>
-          <button class="sc-add" title="Add chapter">＋</button>
-          <button class="sc-del" title="Delete">×</button>
+          <span>${s.chapterCount} ${countLabel}</span>
+          <button class="sc-add" aria-label="Add chapter">＋</button>
+          <button class="sc-del" aria-label="Delete">×</button>
         </div>
       </div>
       <div class="sc-chapters"></div>
@@ -1939,7 +2031,7 @@ async function renderLibrary() {
 
     card.querySelector(".sc-del").addEventListener("click", async (ev) => {
       ev.stopPropagation();
-      if (!confirm(`Delete "${s.title}" and all its chapters?`)) return;
+      if (!confirm(t("delete_subject_confirm", { title: s.title }))) return;
       await deleteSubject(s.id);
       renderLibrary();
       refreshSubjectChips();
@@ -1950,7 +2042,7 @@ async function renderLibrary() {
       saveSettings();
       applySubjectChipState();
       closeModal(libraryModal);
-      showToast(`Upload your next chapter for ${s.title}`);
+      showToast(t("upload_for_subject", { title: s.title }));
       document.getElementById("dropZone")?.click();
     });
 
@@ -1958,7 +2050,7 @@ async function renderLibrary() {
     if (!chapters.length) {
       const empty = document.createElement("div");
       empty.className = "sc-empty";
-      empty.textContent = "No chapters yet. Click + to add one.";
+      empty.textContent = t("no_chapters");
       chaptersEl.appendChild(empty);
     } else {
       chapters.forEach((ch, i) => {
@@ -1976,7 +2068,7 @@ async function renderLibrary() {
         row.addEventListener("click", () => playChapter(ch));
         row.querySelector(".ch-del").addEventListener("click", async (ev) => {
           ev.stopPropagation();
-          if (!confirm(`Delete "${ch.title}"?`)) return;
+          if (!confirm(t("delete_chapter_confirm", { title: ch.title }))) return;
           await deleteChapter(ch.id);
           renderLibrary();
         });

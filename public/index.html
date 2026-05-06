@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#000000" />
-  <title>Reelify — Any file, infinite reels</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0c" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f7f7fb" media="(prefers-color-scheme: light)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Reelify</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
@@ -16,11 +20,11 @@
     <section id="upload-screen" class="screen active">
       <div class="upload-card">
         <div class="top-bar">
-          <button id="libraryBtn" class="ghost-btn" type="button" data-i18n-title="library">
+          <button id="libraryBtn" class="ghost-btn" type="button">
             <span class="ge-icon">📚</span>
             <span class="ge-text" data-i18n="library">Library</span>
           </button>
-          <button id="settingsBtn" class="ghost-btn" type="button" data-i18n-title="settings">
+          <button id="settingsBtn" class="ghost-btn" type="button" aria-label="Settings">
             <span class="ge-icon">⚙</span>
           </button>
         </div>
@@ -56,69 +60,72 @@
             accept=".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,image/*" />
           <div class="dz-inner">
             <div class="dz-icon">+</div>
-            <div class="dz-text" id="dzText">Click or drop a file here</div>
-            <div class="dz-sub">Up to 100&nbsp;MB</div>
+            <div class="dz-text" id="dzText" data-i18n="drop_text">Click or drop a file here</div>
+            <div class="dz-sub" data-i18n="drop_size">Up to 100&nbsp;MB</div>
           </div>
         </label>
 
         <div class="customize" id="customize">
           <div class="cu-row">
-            <div class="cu-label">Vibe</div>
+            <div class="cu-label" data-i18n="label_vibe">Vibe</div>
             <div class="cu-chips" data-name="vibe">
-              <button class="cu-chip" data-val="educational">⚡ Educational</button>
-              <button class="cu-chip" data-val="fun">🎉 Fun</button>
-              <button class="cu-chip" data-val="dramatic">🎭 Dramatic</button>
-              <button class="cu-chip" data-val="chill">🧘 Chill</button>
-              <button class="cu-chip" data-val="genz">🤓 Gen-Z</button>
-              <button class="cu-chip" data-val="custom">✏ Custom</button>
+              <button class="cu-chip" data-val="educational" data-i18n="vibe_educational">⚡ Educational</button>
+              <button class="cu-chip" data-val="fun" data-i18n="vibe_fun">🎉 Fun</button>
+              <button class="cu-chip" data-val="dramatic" data-i18n="vibe_dramatic">🎭 Dramatic</button>
+              <button class="cu-chip" data-val="chill" data-i18n="vibe_chill">🧘 Chill</button>
+              <button class="cu-chip" data-val="genz" data-i18n="vibe_genz">🤓 Gen-Z</button>
+              <button class="cu-chip" data-val="custom" data-i18n="chip_custom">✏ Custom</button>
             </div>
             <input class="cu-custom-input hidden" data-name="vibe" maxlength="240"
-              placeholder='e.g. Attack on Titan style — dramatic anime monologues about humanity' />
+              data-i18n-placeholder="vibe_custom_ph"
+              placeholder="e.g. Attack on Titan style — dramatic anime monologues" />
           </div>
           <div class="cu-row">
-            <div class="cu-label">Look</div>
+            <div class="cu-label" data-i18n="label_look">Look</div>
             <div class="cu-chips" data-name="imageStyle">
-              <button class="cu-chip" data-val="photo">📷 Photo</button>
-              <button class="cu-chip" data-val="3d">✨ 3D</button>
-              <button class="cu-chip" data-val="watercolor">🎨 Watercolor</button>
-              <button class="cu-chip" data-val="anime">🌸 Anime</button>
-              <button class="cu-chip" data-val="neon">🌃 Neon</button>
-              <button class="cu-chip" data-val="vintage">📜 Vintage</button>
-              <button class="cu-chip" data-val="oil">🖼 Oil</button>
-              <button class="cu-chip" data-val="custom">✏ Custom</button>
+              <button class="cu-chip" data-val="photo" data-i18n="look_photo">📷 Photo</button>
+              <button class="cu-chip" data-val="3d" data-i18n="look_3d">✨ 3D</button>
+              <button class="cu-chip" data-val="watercolor" data-i18n="look_watercolor">🎨 Watercolor</button>
+              <button class="cu-chip" data-val="anime" data-i18n="look_anime">🌸 Anime</button>
+              <button class="cu-chip" data-val="neon" data-i18n="look_neon">🌃 Neon</button>
+              <button class="cu-chip" data-val="vintage" data-i18n="look_vintage">📜 Vintage</button>
+              <button class="cu-chip" data-val="oil" data-i18n="look_oil">🖼 Oil</button>
+              <button class="cu-chip" data-val="custom" data-i18n="chip_custom">✏ Custom</button>
             </div>
             <input class="cu-custom-input hidden" data-name="imageStyle" maxlength="200"
-              placeholder='e.g. Studio Ghibli style, hand-painted, soft warm light' />
+              data-i18n-placeholder="look_custom_ph"
+              placeholder="e.g. Studio Ghibli style, hand-painted, soft warm light" />
           </div>
           <div class="cu-row">
-            <div class="cu-label">Length</div>
+            <div class="cu-label" data-i18n="label_length">Length</div>
             <div class="cu-chips" data-name="length">
-              <button class="cu-chip" data-val="short">📌 Quick</button>
-              <button class="cu-chip" data-val="standard">📚 Standard</button>
-              <button class="cu-chip" data-val="long">🎬 Deep dive</button>
+              <button class="cu-chip" data-val="short" data-i18n="length_short">📌 Quick</button>
+              <button class="cu-chip" data-val="standard" data-i18n="length_standard">📚 Standard</button>
+              <button class="cu-chip" data-val="long" data-i18n="length_long">🎬 Deep dive</button>
             </div>
           </div>
           <div class="cu-row">
-            <div class="cu-label">Pace</div>
+            <div class="cu-label" data-i18n="label_pace">Pace</div>
             <div class="cu-chips" data-name="pace">
-              <button class="cu-chip" data-val="chill">🐢 Chill</button>
-              <button class="cu-chip" data-val="normal">🚶 Normal</button>
-              <button class="cu-chip" data-val="fast">🏃 Fast</button>
+              <button class="cu-chip" data-val="chill" data-i18n="pace_chill">🐢 Chill</button>
+              <button class="cu-chip" data-val="normal" data-i18n="pace_normal">🚶 Normal</button>
+              <button class="cu-chip" data-val="fast" data-i18n="pace_fast">🏃 Fast</button>
             </div>
           </div>
           <div class="cu-row">
-            <div class="cu-label">Quiz</div>
+            <div class="cu-label" data-i18n="label_quiz">Quiz</div>
             <div class="cu-chips" data-name="quizDifficulty">
-              <button class="cu-chip" data-val="easy">🌱 Easy</button>
-              <button class="cu-chip" data-val="medium">🌿 Medium</button>
-              <button class="cu-chip" data-val="hard">🌳 Hard</button>
-              <button class="cu-chip" data-val="custom">✏ Custom</button>
+              <button class="cu-chip" data-val="easy" data-i18n="quiz_easy">🌱 Easy</button>
+              <button class="cu-chip" data-val="medium" data-i18n="quiz_medium">🌿 Medium</button>
+              <button class="cu-chip" data-val="hard" data-i18n="quiz_hard">🌳 Hard</button>
+              <button class="cu-chip" data-val="custom" data-i18n="chip_custom">✏ Custom</button>
             </div>
             <input class="cu-custom-input hidden" data-name="quizDifficulty" maxlength="200"
-              placeholder='e.g. Trick questions with similar-looking distractors, focus on dates' />
+              data-i18n-placeholder="quiz_custom_ph"
+              placeholder="e.g. Trick questions, focus on dates" />
           </div>
           <div class="cu-row">
-            <div class="cu-label">Language</div>
+            <div class="cu-label" data-i18n="label_language">Narration language</div>
             <div class="cu-chips" data-name="language">
               <button class="cu-chip" data-val="en">🇬🇧 English</button>
               <button class="cu-chip" data-val="es">🇪🇸 Español</button>
@@ -131,15 +138,16 @@
               <button class="cu-chip" data-val="ar">🇸🇦 العربية</button>
               <button class="cu-chip" data-val="hi">🇮🇳 हिन्दी</button>
               <button class="cu-chip" data-val="zh">🇨🇳 中文</button>
-              <button class="cu-chip" data-val="custom">✏ Custom</button>
+              <button class="cu-chip" data-val="custom" data-i18n="chip_custom">✏ Custom</button>
             </div>
             <input class="cu-custom-input hidden" data-name="language" maxlength="120"
-              placeholder='e.g. Pirate English, Old English, Shakespearean' />
+              data-i18n-placeholder="lang_custom_ph"
+              placeholder="e.g. Pirate English, Old English, Shakespearean" />
           </div>
           <div class="cu-row">
-            <div class="cu-label">Voice</div>
+            <div class="cu-label" data-i18n="label_voice">Voice</div>
             <div class="cu-chips" data-name="voiceOverride">
-              <button class="cu-chip" data-val="auto">🤖 AI picks</button>
+              <button class="cu-chip" data-val="auto" data-i18n="voice_auto">🤖 AI picks</button>
               <button class="cu-chip" data-val="Aoede">🌿 Aoede</button>
               <button class="cu-chip" data-val="Puck">🎈 Puck</button>
               <button class="cu-chip" data-val="Charon">🌊 Charon</button>
@@ -149,34 +157,26 @@
             </div>
           </div>
           <div class="cu-row">
-            <div class="cu-label">Theme</div>
-            <div class="cu-chips" data-name="theme">
-              <button class="cu-chip th-chip th-pink" data-val="pink">Pink</button>
-              <button class="cu-chip th-chip th-blue" data-val="blue">Blue</button>
-              <button class="cu-chip th-chip th-green" data-val="green">Green</button>
-              <button class="cu-chip th-chip th-purple" data-val="purple">Purple</button>
-              <button class="cu-chip th-chip th-orange" data-val="orange">Orange</button>
-            </div>
-          </div>
-          <div class="cu-row">
-            <div class="cu-label">Auto-play next</div>
+            <div class="cu-label" data-i18n="label_auto_advance">Auto-play next</div>
             <div class="cu-chips" data-name="autoAdvance">
-              <button class="cu-chip" data-val="on">▶ On</button>
-              <button class="cu-chip" data-val="off">⏸ Off</button>
+              <button class="cu-chip" data-val="on" data-i18n="autoadvance_on">▶ On</button>
+              <button class="cu-chip" data-val="off" data-i18n="autoadvance_off">⏸ Off</button>
             </div>
           </div>
         </div>
 
         <div class="cu-row" id="subjectPickerRow">
-          <div class="cu-label" data-i18n="save_to">Save to subject</div>
+          <div class="cu-label" data-i18n="label_save_to">Save to subject</div>
           <div class="cu-chips" id="subjectChips" data-name="subject">
-            <button class="cu-chip" data-val="" data-i18n="dont_save">🗑 Don't save</button>
-            <button class="cu-chip cu-new-subject" data-val="__new" data-i18n="new_subject">+ New subject</button>
+            <button class="cu-chip" data-val="" data-i18n="subj_dont_save">🗑 Don't save</button>
+            <button class="cu-chip cu-new-subject" data-val="__new" data-i18n="subj_new">+ New subject</button>
           </div>
-          <input class="cu-custom-input hidden" id="newSubjectInput" maxlength="80" data-i18n-placeholder="new_subject_placeholder"
-            placeholder='Subject name (e.g. "Biology", "WW2 History")' />
-          <input class="cu-custom-input hidden" id="chapterTitleInput" maxlength="120" data-i18n-placeholder="chapter_title_placeholder"
-            placeholder='Chapter title (e.g. "Chapter 1: Cells") — optional' />
+          <input class="cu-custom-input hidden" id="newSubjectInput" maxlength="80"
+            data-i18n-placeholder="new_subject_placeholder"
+            placeholder="Subject name (e.g. Biology)" />
+          <input class="cu-custom-input hidden" id="chapterTitleInput" maxlength="120"
+            data-i18n-placeholder="chapter_title_placeholder"
+            placeholder="Chapter title — optional" />
         </div>
 
         <div class="upload-extras">
@@ -194,7 +194,7 @@
         </div>
 
         <button id="generateBtn" class="primary" disabled data-i18n="generate">Generate Reels</button>
-        <p class="hint" data-i18n="tip_main">Tip: tap to pause · double-tap to ❤ · scroll for next</p>
+        <p class="hint" data-i18n="tip_main">Tap to pause · double-tap to ❤ · scroll for next</p>
       </div>
     </section>
 
@@ -204,17 +204,17 @@
         <div class="bars">
           <span></span><span></span><span></span><span></span><span></span>
         </div>
-        <h2 id="loadingTitle">Reading your file…</h2>
-        <p id="loadingSub" class="sub">Gemini is finding the gold inside.</p>
+        <h2 id="loadingTitle" data-i18n="loading_reading">Reading your file…</h2>
+        <p id="loadingSub" class="sub" data-i18n="loading_reading_sub">Gemini is finding the gold inside.</p>
       </div>
     </section>
 
     <!-- Error -->
     <section id="error-screen" class="screen">
       <div class="error-card">
-        <h2>Something went wrong</h2>
+        <h2 data-i18n="err_title">Something went wrong</h2>
         <p id="errorText" class="sub"></p>
-        <button id="retryBtn" class="primary">Try again</button>
+        <button id="retryBtn" class="primary" data-i18n="quiz_retry">Try again</button>
       </div>
     </section>
 
@@ -222,35 +222,35 @@
     <section id="reels-screen" class="screen">
       <div id="reelsContainer" class="reels"></div>
 
-      <button id="closeReelsBtn" class="close-btn" title="Back">×</button>
+      <button id="closeReelsBtn" class="close-btn" aria-label="Back">×</button>
 
       <div id="reelActions" class="reel-actions">
-        <button class="ra-btn" data-action="like" title="Like">
+        <button class="ra-btn" data-action="like" aria-label="Like">
           <span class="ra-icon"><svg class="ra-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg></span>
           <span class="ra-count">0</span>
         </button>
-        <button class="ra-btn" data-action="react" title="React">
+        <button class="ra-btn" data-action="react" aria-label="React">
           <span class="ra-icon"><svg class="ra-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></span>
         </button>
-        <button class="ra-btn" data-action="ask" title="Ask AI">
+        <button class="ra-btn" data-action="ask" aria-label="Ask AI">
           <span class="ra-icon"><svg class="ra-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
         </button>
-        <button class="ra-btn" data-action="share" title="Share">
+        <button class="ra-btn" data-action="share" aria-label="Share">
           <span class="ra-icon"><svg class="ra-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></span>
         </button>
-        <button class="ra-btn" data-action="save" title="Save">
+        <button class="ra-btn" data-action="save" aria-label="Save">
           <span class="ra-icon"><svg class="ra-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
         </button>
-        <button class="ra-btn" data-action="captionSize" title="Caption size">
+        <button class="ra-btn" data-action="captionSize" aria-label="Caption size">
           <span class="ra-icon ra-cs-icon">Aa</span>
         </button>
-        <button class="ra-btn" data-action="speed" title="Speed">
+        <button class="ra-btn" data-action="speed" aria-label="Speed">
           <span class="ra-icon ra-speed-icon">1×</span>
         </button>
-        <button class="ra-btn" data-action="replay" title="Replay">
+        <button class="ra-btn" data-action="replay" aria-label="Replay">
           <span class="ra-icon"><svg class="ra-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></span>
         </button>
-        <button class="ra-btn" data-action="mute" title="Mute">
+        <button class="ra-btn" data-action="mute" aria-label="Mute">
           <span class="ra-icon"><svg class="ra-svg ra-svg-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><svg class="ra-svg ra-svg-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg></span>
         </button>
       </div>
@@ -265,18 +265,18 @@
         <button class="rp-emoji" data-emoji="👏">👏</button>
       </div>
 
-      <div class="hint-toast" id="firstHint">tap left/right to skip · double-tap to ❤ · scroll for next</div>
+      <div class="hint-toast" id="firstHint" data-i18n="tip_reels">Tap edges to skip · double-tap to ❤ · scroll for next</div>
     </section>
 
     <!-- Ask AI modal -->
     <div id="askModal" class="modal hidden">
       <div class="modal-backdrop" data-close></div>
       <div class="modal-card">
-        <button class="modal-close" data-close>×</button>
-        <h3 class="modal-title">Ask anything</h3>
+        <button class="modal-close" data-close aria-label="Close">×</button>
+        <h3 class="modal-title" data-i18n="ask_title">Ask anything</h3>
         <p class="modal-sub" id="askContext"></p>
-        <textarea id="askInput" placeholder="What do you want to know?" rows="3"></textarea>
-        <button id="askSubmit" class="primary">Ask</button>
+        <textarea id="askInput" rows="3" data-i18n-placeholder="ask_placeholder" placeholder="What do you want to know?"></textarea>
+        <button id="askSubmit" class="primary" data-i18n="ask_button">Ask</button>
         <div id="askAnswer" class="ask-answer hidden"></div>
       </div>
     </div>
@@ -285,7 +285,7 @@
     <div id="savedModal" class="modal hidden">
       <div class="modal-backdrop" data-close></div>
       <div class="modal-card saved-card">
-        <button class="modal-close" data-close>×</button>
+        <button class="modal-close" data-close aria-label="Close">×</button>
         <h3 class="modal-title" data-i18n="saved_reels">Saved reels</h3>
         <div id="savedList" class="saved-list"></div>
         <p class="modal-sub" id="savedEmpty" data-i18n="saved_empty">Tap ★ on any reel to save it here.</p>
@@ -296,7 +296,7 @@
     <div id="libraryModal" class="modal hidden">
       <div class="modal-backdrop" data-close></div>
       <div class="modal-card library-card">
-        <button class="modal-close" data-close>×</button>
+        <button class="modal-close" data-close aria-label="Close">×</button>
         <div class="library-header">
           <h3 class="modal-title" data-i18n="library">Library</h3>
           <button id="newSubjectBtn" class="ghost-btn">
@@ -305,52 +305,47 @@
           </button>
         </div>
         <div id="newSubjectForm" class="new-subject-form hidden">
-          <input id="nsTitle" placeholder="Subject name" maxlength="80" />
+          <input id="nsTitle" maxlength="80" data-i18n-placeholder="new_subject_short" placeholder="Subject name" />
           <div class="ns-row">
-            <input id="nsEmoji" placeholder="📚" maxlength="3" />
+            <input id="nsEmoji" maxlength="3" placeholder="📚" />
             <input id="nsColor" type="color" value="#6b8cff" />
-            <button id="nsCreate" class="primary ns-create">Create</button>
-            <button id="nsCancel" class="ghost-btn">Cancel</button>
+            <button id="nsCreate" class="primary ns-create" data-i18n="create">Create</button>
+            <button id="nsCancel" class="ghost-btn" data-i18n="cancel">Cancel</button>
           </div>
         </div>
         <div id="libraryList" class="library-list"></div>
-        <p class="modal-sub" id="libraryEmpty" data-i18n="library_empty">No subjects yet. Click "+ New subject" to start a library.</p>
+        <p class="modal-sub" id="libraryEmpty" data-i18n="library_empty">No subjects yet. Tap "+ New subject" to start a library.</p>
       </div>
     </div>
 
-    <!-- App settings modal: theme + UI language -->
+    <!-- App settings modal: app style / theme / language -->
     <div id="settingsModal" class="modal hidden">
       <div class="modal-backdrop" data-close></div>
       <div class="modal-card">
-        <button class="modal-close" data-close>×</button>
+        <button class="modal-close" data-close aria-label="Close">×</button>
         <h3 class="modal-title" data-i18n="settings">Settings</h3>
         <div class="cu-row">
-          <div class="cu-label" data-i18n="app_style">App style</div>
+          <div class="cu-label" data-i18n="label_app_style">App style</div>
           <div class="cu-chips" data-name="uiTheme">
-            <button class="cu-chip" data-val="default">🌑 Default</button>
-            <button class="cu-chip" data-val="editorial">📰 Editorial</button>
-            <button class="cu-chip" data-val="glass">💎 Liquid Glass</button>
-            <button class="cu-chip" data-val="riso">📜 Risograph</button>
-            <button class="cu-chip" data-val="pastel">🌸 Soft Pastel</button>
+            <button class="cu-chip" data-val="default" data-i18n="style_default">🌑 Default</button>
+            <button class="cu-chip" data-val="editorial" data-i18n="style_editorial">📰 Editorial</button>
+            <button class="cu-chip" data-val="glass" data-i18n="style_glass">💎 Liquid Glass</button>
+            <button class="cu-chip" data-val="riso" data-i18n="style_riso">📜 Risograph</button>
+            <button class="cu-chip" data-val="pastel" data-i18n="style_pastel">🌸 Soft Pastel</button>
           </div>
         </div>
         <div class="cu-row">
-          <div class="cu-label" data-i18n="app_theme">App theme (Default style only)</div>
+          <div class="cu-label" data-i18n="label_app_theme">App theme</div>
           <div class="cu-chips" data-name="appTheme">
-            <button class="cu-chip" data-val="dark">🌙 Dark</button>
-            <button class="cu-chip" data-val="light">☀ Light</button>
-            <button class="cu-chip" data-val="auto">🎚 Auto</button>
+            <button class="cu-chip" data-val="dark" data-i18n="apptheme_dark">🌙 Dark</button>
+            <button class="cu-chip" data-val="light" data-i18n="apptheme_light">☀ Light</button>
+            <button class="cu-chip" data-val="auto" data-i18n="apptheme_auto">🎚 Auto</button>
           </div>
         </div>
         <div class="cu-row">
-          <div class="cu-label" data-i18n="app_lang">App language</div>
+          <div class="cu-label" data-i18n="label_app_lang">App language</div>
           <div class="cu-chips" data-name="appLang">
             <button class="cu-chip" data-val="en">🇬🇧 English</button>
-            <button class="cu-chip" data-val="es">🇪🇸 Español</button>
-            <button class="cu-chip" data-val="fr">🇫🇷 Français</button>
-            <button class="cu-chip" data-val="de">🇩🇪 Deutsch</button>
-            <button class="cu-chip" data-val="pt">🇵🇹 Português</button>
-            <button class="cu-chip" data-val="ja">🇯🇵 日本語</button>
             <button class="cu-chip" data-val="ar">🇸🇦 العربية</button>
           </div>
         </div>

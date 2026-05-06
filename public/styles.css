@@ -8,7 +8,11 @@
   --radius: 18px;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
 html, body {
   margin: 0;
   padding: 0;
@@ -17,8 +21,33 @@ html, body {
   color: var(--fg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
+/* Allow text selection only where it's actually useful */
+input, textarea, [contenteditable],
+.caption-chunk, .reel-title, .ask-answer, .modal-sub,
+.quiz-question, .ch-title, .si-title, .si-narr, .sub {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+/* Hover effects only on devices that actually have hover (desktop) */
+@media (hover: none) {
+  .cu-chip:hover, .ra-btn:hover .ra-icon, .quiz-option:hover:not(:disabled),
+  .ghost-btn:hover, .primary:hover:not(:disabled), .ch-row:hover,
+  .saved-item:hover, .drop-zone:hover, .rp-emoji:hover, .modal-close:hover,
+  .sc-add:hover, .sc-del:hover, .ch-del:hover {
+    transform: none !important;
+    background: initial;
+  }
+}
+button { font-family: inherit; }
+input, textarea { font-family: inherit; }
+img, svg { -webkit-user-drag: none; }
 
 #app { height: 100vh; height: 100dvh; position: relative; overflow: hidden; }
 
@@ -1026,7 +1055,7 @@ h1 {
 }
 
 /* ----- Light app theme ----- */
-body[data-app-theme="light"] {
+body[data-ui-theme="default"][data-app-theme="light"] {
   --bg: #f7f7fb;
   --fg: #15151c;
   --muted: #6b6b7a;
@@ -1034,80 +1063,124 @@ body[data-app-theme="light"] {
   background: var(--bg);
   color: var(--fg);
 }
-body[data-app-theme="light"] .upload-card {
+body[data-ui-theme="default"][data-app-theme="light"] .upload-card {
   background: linear-gradient(160deg, #ffffff 0%, #f1f1f6 100%);
   border-color: rgba(0,0,0,0.06);
   color: var(--fg);
   box-shadow: 0 30px 80px rgba(0,0,0,0.08);
 }
-body[data-app-theme="light"] h1 {
+body[data-ui-theme="default"][data-app-theme="light"] h1 {
   background: linear-gradient(135deg, #15151c 0%, #5a4dff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-body[data-app-theme="light"] .sub,
-body[data-app-theme="light"] .hint,
-body[data-app-theme="light"] .stats-badge { color: var(--muted); }
-body[data-app-theme="light"] .drop-zone {
+body[data-ui-theme="default"][data-app-theme="light"] .sub,
+body[data-ui-theme="default"][data-app-theme="light"] .hint,
+body[data-ui-theme="default"][data-app-theme="light"] .stats-badge { color: var(--muted); }
+body[data-ui-theme="default"][data-app-theme="light"] .drop-zone {
   border-color: rgba(0,0,0,0.12);
   background: rgba(0,0,0,0.02);
 }
-body[data-app-theme="light"] .drop-zone:hover,
-body[data-app-theme="light"] .drop-zone.drag {
+body[data-ui-theme="default"][data-app-theme="light"] .drop-zone:hover,
+body[data-ui-theme="default"][data-app-theme="light"] .drop-zone.drag {
   border-color: var(--accent);
   background: rgba(255,59,107,0.05);
 }
-body[data-app-theme="light"] .dz-icon { background: rgba(0,0,0,0.06); color: var(--fg); }
-body[data-app-theme="light"] .dz-text { color: var(--fg); }
-body[data-app-theme="light"] .dz-sub { color: var(--muted); }
-body[data-app-theme="light"] .cu-label { color: rgba(0,0,0,0.5); }
-body[data-app-theme="light"] .cu-chip {
+body[data-ui-theme="default"][data-app-theme="light"] .dz-icon { background: rgba(0,0,0,0.06); color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .dz-text { color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .dz-sub { color: var(--muted); }
+body[data-ui-theme="default"][data-app-theme="light"] .cu-label { color: rgba(0,0,0,0.5); }
+body[data-ui-theme="default"][data-app-theme="light"] .cu-chip {
   background: rgba(0,0,0,0.04);
   border-color: rgba(0,0,0,0.08);
   color: rgba(0,0,0,0.78);
 }
-body[data-app-theme="light"] .cu-chip:hover { background: rgba(0,0,0,0.07); }
-body[data-app-theme="light"] .cu-chip.active {
+body[data-ui-theme="default"][data-app-theme="light"] .cu-chip:hover { background: rgba(0,0,0,0.07); }
+body[data-ui-theme="default"][data-app-theme="light"] .cu-chip.active {
   background: linear-gradient(135deg, rgba(255,59,107,0.18), rgba(107,140,255,0.18));
   border-color: rgba(0,0,0,0.18);
   color: #15151c;
 }
-body[data-app-theme="light"] .cu-custom-input {
+body[data-ui-theme="default"][data-app-theme="light"] .cu-custom-input {
   background: rgba(0,0,0,0.03);
   border-color: rgba(0,0,0,0.1);
   color: var(--fg);
 }
-body[data-app-theme="light"] .cu-custom-input::placeholder { color: rgba(0,0,0,0.35); }
-body[data-app-theme="light"] .ghost-btn {
+body[data-ui-theme="default"][data-app-theme="light"] .cu-custom-input::placeholder { color: rgba(0,0,0,0.35); }
+body[data-ui-theme="default"][data-app-theme="light"] .ghost-btn {
   background: rgba(0,0,0,0.04);
   border-color: rgba(0,0,0,0.1);
   color: var(--fg);
 }
-body[data-app-theme="light"] .ghost-btn:hover { background: rgba(0,0,0,0.08); }
-body[data-app-theme="light"] .sb-num { color: var(--fg); }
-body[data-app-theme="light"] .sb-sep { color: rgba(0,0,0,0.2); }
-body[data-app-theme="light"] .modal-card {
+body[data-ui-theme="default"][data-app-theme="light"] .ghost-btn:hover { background: rgba(0,0,0,0.08); }
+body[data-ui-theme="default"][data-app-theme="light"] .sb-num { color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .sb-sep { color: rgba(0,0,0,0.2); }
+body[data-ui-theme="default"][data-app-theme="light"] .modal-card {
   background: linear-gradient(160deg, #ffffff 0%, #f1f1f6 100%);
   border-color: rgba(0,0,0,0.08);
   color: var(--fg);
 }
-body[data-app-theme="light"] .modal-close { background: rgba(0,0,0,0.06); color: var(--fg); }
-body[data-app-theme="light"] .modal-sub { color: rgba(0,0,0,0.55); }
-body[data-app-theme="light"] .subject-card { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
-body[data-app-theme="light"] .ch-row { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.05); }
-body[data-app-theme="light"] .ch-row:hover { background: rgba(0,0,0,0.06); }
-body[data-app-theme="light"] .sc-title, body[data-app-theme="light"] .ch-title { color: var(--fg); }
-body[data-app-theme="light"] .sc-meta, body[data-app-theme="light"] .ch-meta, body[data-app-theme="light"] .sc-empty { color: rgba(0,0,0,0.5); }
-body[data-app-theme="light"] #askInput { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: var(--fg); }
-body[data-app-theme="light"] .ask-answer { background: rgba(107,140,255,0.08); border-color: rgba(107,140,255,0.2); color: var(--fg); }
-body[data-app-theme="light"] .new-subject-form input { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .modal-close { background: rgba(0,0,0,0.06); color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .modal-sub { color: rgba(0,0,0,0.55); }
+body[data-ui-theme="default"][data-app-theme="light"] .subject-card { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+body[data-ui-theme="default"][data-app-theme="light"] .ch-row { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.05); }
+body[data-ui-theme="default"][data-app-theme="light"] .ch-row:hover { background: rgba(0,0,0,0.06); }
+body[data-ui-theme="default"][data-app-theme="light"] .sc-title, body[data-ui-theme="default"][data-app-theme="light"] .ch-title { color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .sc-meta, body[data-ui-theme="default"][data-app-theme="light"] .ch-meta, body[data-ui-theme="default"][data-app-theme="light"] .sc-empty { color: rgba(0,0,0,0.5); }
+body[data-ui-theme="default"][data-app-theme="light"] #askInput { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .ask-answer { background: rgba(107,140,255,0.08); border-color: rgba(107,140,255,0.2); color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .new-subject-form input { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: var(--fg); }
 
-/* RTL adjustments for Arabic UI */
+/* ----- Comprehensive RTL coverage (Arabic UI) ----- */
+html[dir="rtl"] body, html[dir="rtl"] .upload-card, html[dir="rtl"] .modal-card,
+html[dir="rtl"] .quiz-card, html[dir="rtl"] .ask-answer, html[dir="rtl"] .saved-item,
+html[dir="rtl"] .subject-card, html[dir="rtl"] .ch-row, html[dir="rtl"] h1, html[dir="rtl"] .sub,
+html[dir="rtl"] .hint, html[dir="rtl"] .reel-title-wrap, html[dir="rtl"] .quiz-question,
+html[dir="rtl"] .modal-title, html[dir="rtl"] .modal-sub, html[dir="rtl"] .ask-answer,
+html[dir="rtl"] .new-subject-form, html[dir="rtl"] #askInput {
+  text-align: right;
+}
 html[dir="rtl"] .top-bar { flex-direction: row-reverse; }
+html[dir="rtl"] .upload-extras { flex-direction: row-reverse; }
+html[dir="rtl"] .ns-row { flex-direction: row-reverse; }
+html[dir="rtl"] .quiz-meta-row { flex-direction: row-reverse; }
+html[dir="rtl"] .sc-head { flex-direction: row-reverse; }
+html[dir="rtl"] .sc-meta { flex-direction: row-reverse; }
+html[dir="rtl"] .reel-meta { flex-direction: row-reverse; }
+html[dir="rtl"] .ch-row { flex-direction: row-reverse; }
+html[dir="rtl"] .si-meta { flex-direction: row-reverse; }
+html[dir="rtl"] .library-header { flex-direction: row-reverse; }
+html[dir="rtl"] .score-actions { flex-direction: column; }
+html[dir="rtl"] .quiz-option { flex-direction: row-reverse; text-align: right; }
+html[dir="rtl"] .ghost-btn { flex-direction: row-reverse; }
+
+/* Action sidebar moves to the LEFT in RTL */
 html[dir="rtl"] .reel-actions { right: auto; left: 8px; }
 html[dir="rtl"] .reel-content { padding: 70px 22px calc(60px + env(safe-area-inset-bottom, 0)) 76px; }
 html[dir="rtl"] .close-btn { left: auto; right: 14px; }
+html[dir="rtl"] .reactions-picker { left: auto; right: 70px; }
+
+/* Caption chunks should keep LTR for English narration but flip for AR narration.
+   Captions use the auto-detected directionality of their content (browsers usually
+   handle this correctly inside <span> tags; we just hint at neutral alignment). */
+html[dir="rtl"] .caption-chunk {
+  direction: rtl;
+  text-align: center;
+}
+
+/* Confirm-style buttons keep LTR alignment for arrows */
+html[dir="rtl"] .quiz-next { direction: ltr; text-align: center; }
+html[dir="rtl"] .ch-num { direction: ltr; }
+html[dir="rtl"] .si-voice, html[dir="rtl"] .voice-badge { direction: ltr; }
+html[dir="rtl"] .reel-progress { direction: ltr; }
+html[dir="rtl"] .stats-badge { direction: ltr; flex-direction: row-reverse; }
+
+/* Drop-zone icon stays in the visual center */
+html[dir="rtl"] .dz-inner { text-align: center; }
+
+/* Toast position remains centered horizontally */
+html[dir="rtl"] .toast { direction: rtl; }
 
 /* ----- Action-bar SVG icons ----- */
 .ra-svg {
@@ -1315,13 +1388,24 @@ body[data-ui-theme="glass"]::before {
   50%  { transform: translate(-2%, 2%) scale(1.05); }
   100% { transform: translate(2%, -1%) scale(1.02); }
 }
+/* Liquid Glass: full-bleed, no card chrome — content sits directly on the
+   animated mesh, the way iOS 26 sheets work. No rounded corners, no border,
+   no shadow — the gradient mesh IS the page. */
+body[data-ui-theme="glass"] #upload-screen.active {
+  align-items: stretch;
+  padding: 0;
+}
 body[data-ui-theme="glass"] .upload-card {
-  background: rgba(255,255,255,0.06);
-  backdrop-filter: blur(28px) saturate(1.4);
-  -webkit-backdrop-filter: blur(28px) saturate(1.4);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 28px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.18);
+  background: transparent !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  max-width: none;
+  width: 100%;
+  min-height: 100dvh;
+  padding: max(54px, calc(env(safe-area-inset-top, 0) + 54px)) 24px max(28px, env(safe-area-inset-bottom, 0));
 }
 body[data-ui-theme="glass"] h1 {
   background: linear-gradient(135deg, #ffffff, #c9d6ff);
@@ -1369,12 +1453,36 @@ body[data-ui-theme="glass"] .ghost-btn {
   border-radius: 999px;
   color: white;
 }
+/* Liquid Glass: sheet-style modals — fly up from bottom, only top corners
+   rounded, full width on phones, no floating-card vibe. */
+body[data-ui-theme="glass"] .modal { padding: 0; align-items: flex-end; }
 body[data-ui-theme="glass"] .modal-card {
-  background: rgba(20, 22, 40, 0.55);
+  background: rgba(20, 22, 40, 0.65);
   backdrop-filter: blur(40px) saturate(1.5);
   -webkit-backdrop-filter: blur(40px) saturate(1.5);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 24px;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.16);
+  border-radius: 22px 22px 0 0;
+  max-width: none;
+  width: 100%;
+  max-height: 92vh;
+  padding-bottom: max(28px, env(safe-area-inset-bottom, 0));
+  animation: glass-sheet-up 0.32s cubic-bezier(.32,1,.32,1);
+}
+@keyframes glass-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+body[data-ui-theme="glass"] .modal-card::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.25);
 }
 body[data-ui-theme="glass"] .reel-actions {
   background: rgba(255,255,255,0.07);
