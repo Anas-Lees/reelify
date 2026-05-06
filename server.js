@@ -7,6 +7,8 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import officeParser from "officeparser";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import * as db from "./db.js";
 
 dotenv.config();
@@ -17,6 +19,11 @@ const __dirname = path.dirname(__filename);
 if (!process.env.GEMINI_API_KEY) {
   console.error("\nMissing GEMINI_API_KEY. Copy .env.example to .env and add your key from https://aistudio.google.com/apikey\n");
   process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString("hex");
+if (!process.env.JWT_SECRET) {
+  console.warn("[auth] JWT_SECRET not set — using a random per-process secret. Users will be logged out on every restart. Set JWT_SECRET in Render env vars to fix.");
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -262,7 +269,7 @@ async function extractContentForGemini(filePath, originalName, mimeType) {
   throw new Error(`Unsupported file type: ${mimeType || ext || "unknown"}. Try a PDF or paste the text directly.`);
 }
 
-app.post("/api/upload", upload.single("file"), async (req, res) => {
+app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => {
   const filePath = req.file?.path;
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
@@ -344,7 +351,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-app.post("/api/image", async (req, res) => {
+app.post("/api/image", requireAuth, async (req, res) => {
   try {
     const { prompt, imageStyle, imageStyleCustom } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing prompt" });
@@ -468,7 +475,7 @@ function parsePodcastTurns(text) {
   return turns;
 }
 
-app.post("/api/tts", async (req, res) => {
+app.post("/api/tts", requireAuth, async (req, res) => {
   try {
     const { text, format } = req.body;
     let voice = req.body.voice || TTS_VOICE;
@@ -524,7 +531,7 @@ app.post("/api/tts", async (req, res) => {
   }
 });
 
-app.post("/api/ask", async (req, res) => {
+app.post("/api/ask", requireAuth, async (req, res) => {
   try {
     const { question, context, language } = req.body || {};
     if (!question) return res.status(400).json({ error: "Missing question" });
@@ -558,51 +565,149 @@ Your answer:`;
   }
 });
 
-// ----- Subjects -----
-app.get("/api/subjects", (_req, res) => {
-  res.json({ subjects: db.listSubjects() });
+// ----- Auth -----
+function authMiddleware(req, _res, next) {
+  const auth = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  req.user = null;
+  if (token) {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET);
+      req.user = { id: payload.id, email: payload.email };
+    } catch {}
+  }
+  next();
+}
+function requireAuth(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: "Sign in required" });
+  next();
+}
+app.use(authMiddleware);
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { email, password, displayName } = req.body || {};
+    if (!email || !EMAIL_RE.test(email)) return res.status(400).json({ error: "Invalid email" });
+    if (!password || password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+    if (db.getUserByEmail(email)) return res.status(409).json({ error: "An account already exists for that email" });
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = db.createUser({ email, passwordHash, displayName });
+    // First user on a fresh deploy claims any orphan subjects (single-user convenience)
+    const claimed = db.claimOrphanSubjectsFor(user.id);
+    if (claimed) console.log(`[auth] claimed ${claimed} orphan subjects for new user ${user.email}`);
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "30d" });
+    res.json({ token, user: { id: user.id, email: user.email, displayName: user.displayName } });
+  } catch (e) {
+    console.error("signup error:", e);
+    res.status(500).json({ error: "Signup failed" });
+  }
 });
 
-app.post("/api/subjects", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const user = db.getUserByEmail(email);
+    if (!user) return res.status(401).json({ error: "Wrong email or password" });
+    const ok = await bcrypt.compare(password || "", user.passwordHash);
+    if (!ok) return res.status(401).json({ error: "Wrong email or password" });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "30d" });
+    res.json({ token, user: { id: user.id, email: user.email, displayName: user.displayName } });
+  } catch (e) {
+    console.error("login error:", e);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+app.get("/api/auth/me", requireAuth, (req, res) => {
+  const user = db.getUser(req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
+});
+
+// ----- Subjects (scoped to user) -----
+app.get("/api/subjects", requireAuth, (req, res) => {
+  res.json({ subjects: db.listSubjects(req.user.id) });
+});
+
+app.post("/api/subjects", requireAuth, (req, res) => {
   const { title, description, color, emoji } = req.body || {};
   if (!title || !String(title).trim()) return res.status(400).json({ error: "Missing title" });
-  const subject = db.createSubject({ title, description, color, emoji });
+  const subject = db.createSubject({ title, description, color, emoji, userId: req.user.id });
   res.json({ subject });
 });
 
-app.patch("/api/subjects/:id", (req, res) => {
+app.patch("/api/subjects/:id", requireAuth, (req, res) => {
+  const cur = db.getSubject(req.params.id);
+  if (!cur || cur.userId !== req.user.id) return res.status(404).json({ error: "Subject not found" });
   const subject = db.updateSubject(req.params.id, req.body || {});
-  if (!subject) return res.status(404).json({ error: "Subject not found" });
   res.json({ subject });
 });
 
-app.delete("/api/subjects/:id", (req, res) => {
+app.delete("/api/subjects/:id", requireAuth, (req, res) => {
+  const cur = db.getSubject(req.params.id);
+  if (!cur || cur.userId !== req.user.id) return res.status(404).json({ error: "Subject not found" });
   db.deleteSubject(req.params.id);
   res.json({ ok: true });
 });
 
 // ----- Chapters -----
-app.get("/api/subjects/:id/chapters", (req, res) => {
+app.get("/api/subjects/:id/chapters", requireAuth, (req, res) => {
+  const subj = db.getSubject(req.params.id);
+  if (!subj || subj.userId !== req.user.id) return res.status(404).json({ error: "Subject not found" });
   res.json({ chapters: db.listChapters(req.params.id) });
 });
 
-app.get("/api/chapters/:id", (req, res) => {
+app.get("/api/chapters/:id", requireAuth, (req, res) => {
   const chapter = db.getChapter(req.params.id);
   if (!chapter) return res.status(404).json({ error: "Chapter not found" });
+  const subj = db.getSubject(chapter.subjectId);
+  if (!subj || subj.userId !== req.user.id) return res.status(404).json({ error: "Chapter not found" });
   res.json({ chapter });
 });
 
-app.delete("/api/chapters/:id", (req, res) => {
+app.delete("/api/chapters/:id", requireAuth, (req, res) => {
+  const chapter = db.getChapter(req.params.id);
+  if (!chapter) return res.json({ ok: true });
+  const subj = db.getSubject(chapter.subjectId);
+  if (!subj || subj.userId !== req.user.id) return res.status(404).json({ error: "Chapter not found" });
   db.deleteChapter(req.params.id);
   res.json({ ok: true });
 });
 
-// Cache image/audio URL per reel, so saved chapters don't have to regenerate them
-app.post("/api/chapters/:id/asset", (req, res) => {
+app.post("/api/chapters/:id/asset", requireAuth, (req, res) => {
   const { kind, reelIdx, url } = req.body || {};
   if (!kind || reelIdx === undefined || !url) return res.status(400).json({ error: "Missing fields" });
+  const chapter = db.getChapter(req.params.id);
+  if (!chapter) return res.status(404).json({ error: "Chapter not found" });
+  const subj = db.getSubject(chapter.subjectId);
+  if (!subj || subj.userId !== req.user.id) return res.status(404).json({ error: "Chapter not found" });
   const map = db.setChapterAsset(req.params.id, kind, reelIdx, url);
   if (!map) return res.status(404).json({ error: "Chapter not found" });
+  res.json({ ok: true });
+});
+
+// ----- Saved reels (server-persistent) -----
+app.get("/api/saved", requireAuth, (req, res) => {
+  res.json({ saved: db.listSavedReels(req.user.id) });
+});
+
+app.post("/api/saved", requireAuth, (req, res) => {
+  const { title, narration, backgroundPrompt, voice, accentColor, imageUrl, audioUrl, card } = req.body || {};
+  if (!title || !narration) return res.status(400).json({ error: "title + narration required" });
+  // Dedupe: if the same reel (title+narration) already saved, return existing.
+  const existing = db.findSavedReel(req.user.id, title, narration);
+  if (existing) return res.json({ saved: existing, dedup: true });
+  const saved = db.createSavedReel({
+    userId: req.user.id,
+    title, narration, backgroundPrompt, voice, accentColor, imageUrl, audioUrl, card,
+  });
+  res.json({ saved });
+});
+
+app.delete("/api/saved/:id", requireAuth, (req, res) => {
+  db.deleteSavedReel(req.params.id, req.user.id);
   res.json({ ok: true });
 });
 

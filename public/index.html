@@ -16,6 +16,76 @@
 </head>
 <body>
   <main id="app">
+    <!-- Login / Signup -->
+    <section id="login-screen" class="screen">
+      <div class="auth-card">
+        <div class="logo">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+        <h1 data-i18n="auth_title">Welcome to Reelify</h1>
+        <p class="sub" data-i18n="auth_sub">Sign in to keep your library and saved reels synced across devices.</p>
+        <form id="authForm" class="auth-form" autocomplete="on">
+          <input id="authEmail" type="email" required autocomplete="email"
+            data-i18n-placeholder="auth_email" placeholder="Email" />
+          <input id="authPassword" type="password" required minlength="6" autocomplete="current-password"
+            data-i18n-placeholder="auth_password" placeholder="Password (6+ chars)" />
+          <input id="authName" type="text" autocomplete="name"
+            class="auth-name-field"
+            data-i18n-placeholder="auth_name" placeholder="Display name (optional)" />
+          <p class="auth-error" id="authError"></p>
+          <button id="authSignIn" type="submit" class="primary" data-i18n="auth_sign_in">Sign in</button>
+          <button id="authSignUp" type="button" class="ghost-btn auth-toggle" data-i18n="auth_create_instead">Create an account instead</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Library (full page) -->
+    <section id="library-screen" class="screen">
+      <div class="library-page">
+        <div class="library-page-bar">
+          <button id="libraryBack" class="ghost-btn icon-only" aria-label="Back">
+            <span class="ge-icon">←</span>
+          </button>
+          <h2 class="library-page-title" data-i18n="library">Library</h2>
+          <button id="logoutBtn" class="ghost-btn icon-only" aria-label="Sign out" title="Sign out">
+            <span class="ge-icon">⏻</span>
+          </button>
+        </div>
+
+        <div class="library-tabs">
+          <button class="lib-tab active" data-tab="subjects" data-i18n="tab_subjects">Subjects</button>
+          <button class="lib-tab" data-tab="saved" data-i18n="tab_saved">Saved reels</button>
+        </div>
+
+        <div class="library-tab-panel" data-tab-panel="subjects">
+          <div class="library-page-actions">
+            <button id="newSubjectBtn2" class="ghost-btn">
+              <span class="ge-icon">+</span>
+              <span class="ge-text" data-i18n="new_subject_short">New subject</span>
+            </button>
+          </div>
+          <div id="newSubjectForm2" class="new-subject-form hidden">
+            <input id="nsTitle2" maxlength="80" placeholder="Subject name" />
+            <div class="ns-row">
+              <input id="nsEmoji2" maxlength="3" placeholder="📚" />
+              <input id="nsColor2" type="color" value="#6b8cff" />
+              <button id="nsCreate2" class="primary ns-create" data-i18n="create">Create</button>
+              <button id="nsCancel2" class="ghost-btn" data-i18n="cancel">Cancel</button>
+            </div>
+          </div>
+          <div id="libraryList2" class="library-list"></div>
+          <p class="modal-sub" id="libraryEmpty2" data-i18n="library_empty">No subjects yet. Tap "+ New subject" to start a library.</p>
+        </div>
+
+        <div class="library-tab-panel hidden" data-tab-panel="saved">
+          <div id="savedList2" class="saved-list"></div>
+          <p class="modal-sub" id="savedEmpty2" data-i18n="saved_empty">Tap ★ on any reel to save it here.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Upload -->
     <section id="upload-screen" class="screen active">
       <div class="upload-card">

@@ -66,6 +66,112 @@ img, svg { -webkit-user-drag: none; }
   padding: 0;
 }
 
+/* ----- AUTH (login / signup) ----- */
+#login-screen.active {
+  align-items: flex-start;
+  padding: 0;
+  overflow-y: auto;
+}
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: max(56px, calc(env(safe-area-inset-top, 0) + 56px)) 24px max(40px, env(safe-area-inset-bottom, 0));
+  text-align: center;
+}
+.auth-card h1 { font-size: 28px; margin: 18px 0 8px; }
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+}
+.auth-form input {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: white;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.auth-form input:focus { border-color: var(--accent); background: rgba(255,255,255,0.08); }
+.auth-form .auth-name-field { display: none; }
+body.auth-signup .auth-form .auth-name-field { display: block; }
+.auth-error {
+  margin: 0;
+  min-height: 18px;
+  font-size: 13px;
+  color: #ff8a8a;
+  text-align: center;
+}
+.auth-toggle {
+  background: transparent !important;
+  border: none !important;
+  color: var(--accent-2) !important;
+  font-size: 13.5px !important;
+  padding: 8px !important;
+  margin-top: 4px;
+}
+
+/* ----- LIBRARY full page ----- */
+#library-screen.active {
+  align-items: flex-start;
+  padding: 0;
+  overflow-y: auto;
+}
+.library-page {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: max(20px, calc(env(safe-area-inset-top, 0) + 12px)) 16px max(40px, env(safe-area-inset-bottom, 0));
+}
+.library-page-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.library-page-title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.library-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.05);
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+.lib-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 9px;
+  color: rgba(255,255,255,0.7);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.lib-tab.active {
+  background: rgba(255,255,255,0.12);
+  color: white;
+}
+.library-tab-panel.hidden { display: none; }
+.library-page-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+/* RTL flips for auth + library */
+html[dir="rtl"] .library-page-bar { flex-direction: row-reverse; }
+html[dir="rtl"] .auth-form input { text-align: right; direction: rtl; }
+html[dir="rtl"] .auth-error { text-align: center; }
+
 /* ----- UPLOAD — phone-native, edge-to-edge (no document-card vibe) ----- */
 .upload-card {
   width: 100%;

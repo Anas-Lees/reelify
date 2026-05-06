@@ -3,10 +3,12 @@
 // ==============================
 const $ = (sel) => document.querySelector(sel);
 const screens = {
+  login: $("#login-screen"),
   upload: $("#upload-screen"),
   loading: $("#loading-screen"),
   error: $("#error-screen"),
   reels: $("#reels-screen"),
+  library: $("#library-screen"),
 };
 function showScreen(name) {
   for (const k of Object.keys(screens)) screens[k].classList.toggle("active", k === name);
@@ -26,6 +28,42 @@ const loadingSub = $("#loadingSub");
 
 let selectedFile = null;
 let currentDoc = null;
+
+// ----- Auth state -----
+let authToken = null;
+let authUser = null;
+try {
+  const raw = localStorage.getItem("reelify-auth");
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    authToken = parsed.token || null;
+    authUser  = parsed.user  || null;
+  }
+} catch {}
+function persistAuth() {
+  try {
+    if (authToken) localStorage.setItem("reelify-auth", JSON.stringify({ token: authToken, user: authUser }));
+    else           localStorage.removeItem("reelify-auth");
+  } catch {}
+}
+async function api(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  // JSON stringify plain objects automatically
+  if (options.body && !(options.body instanceof FormData) && typeof options.body !== "string" && typeof options.body !== "object") {
+    // string or FormData — leave as-is
+  } else if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(options.body);
+  }
+  const res = await fetch(path, { ...options, headers });
+  if (res.status === 401 && authToken) {
+    // Token expired — kick to login
+    authToken = null; authUser = null; persistAuth();
+    showScreen("login");
+  }
+  return res;
+}
 let currentReels = [];
 let currentQuiz = [];
 let currentReelEl = null;
@@ -203,6 +241,21 @@ const I18N = {
     paste_too_short: "Add a bit more text first",
     // Checkpoint
     checkpoint_label: "Quick check",
+    // Auth
+    auth_title: "Welcome to Reelify",
+    auth_sub: "Sign in to keep your library and saved reels synced across devices.",
+    auth_email: "Email",
+    auth_password: "Password (6+ chars)",
+    auth_name: "Display name (optional)",
+    auth_sign_in: "Sign in",
+    auth_create: "Create account",
+    auth_create_instead: "Create an account instead",
+    auth_back_to_signin: "Already have an account? Sign in",
+    auth_signing_in: "Signing in…",
+    auth_creating: "Creating account…",
+    // Library tabs
+    tab_subjects: "Subjects",
+    tab_saved: "Saved reels",
   },
 
   ar: {
@@ -316,6 +369,19 @@ const I18N = {
     paste_submit: "أنشئ من النص",
     paste_too_short: "أضف مزيداً من النص أولاً",
     checkpoint_label: "تحقّق سريع",
+    auth_title: "مرحباً بك في Reelify",
+    auth_sub: "سجّل دخول لحفظ مكتبتك وريلزاتك ومزامنتها عبر الأجهزة.",
+    auth_email: "البريد الإلكتروني",
+    auth_password: "كلمة المرور (٦ أحرف على الأقل)",
+    auth_name: "الاسم الظاهر (اختياري)",
+    auth_sign_in: "تسجيل الدخول",
+    auth_create: "إنشاء حساب",
+    auth_create_instead: "إنشاء حساب بدلاً من ذلك",
+    auth_back_to_signin: "لديك حساب؟ سجّل دخول",
+    auth_signing_in: "جارٍ تسجيل الدخول…",
+    auth_creating: "جارٍ إنشاء الحساب…",
+    tab_subjects: "المواضيع",
+    tab_saved: "الريلز المحفوظة",
   },
 };
 
@@ -585,6 +651,9 @@ async function generate() {
 
     ensureImage(0); ensureAudio(0);
     if (currentReels.length > 1) { ensureImage(1); ensureAudio(1); }
+    // Pre-warm every reel's assets in the background (2 concurrent workers) so
+    // the user never waits when scrolling — even on a 30-reel doc.
+    if (typeof backgroundFillAllAssets === "function") setTimeout(backgroundFillAllAssets, 600);
 
     requestAnimationFrame(() => {
       const first = reelsContainer.firstElementChild;
@@ -1612,6 +1681,408 @@ document.addEventListener("visibilitychange", () => {
     if (currentReelEl) currentReelEl.classList.add("paused");
   }
 });
+
+// =============================================================
+//  AUTH (login / signup / logout)
+// =============================================================
+const authForm = document.getElementById("authForm");
+const authEmail = document.getElementById("authEmail");
+const authPassword = document.getElementById("authPassword");
+const authName = document.getElementById("authName");
+const authError = document.getElementById("authError");
+const authSignInBtn = document.getElementById("authSignIn");
+const authSignUpToggle = document.getElementById("authSignUp");
+let authMode = "signin"; // 'signin' | 'signup'
+
+function setAuthMode(mode) {
+  authMode = mode;
+  if (authMode === "signup") {
+    authSignInBtn.textContent = t("auth_create");
+    authSignUpToggle.textContent = t("auth_back_to_signin");
+    document.body.classList.add("auth-signup");
+  } else {
+    authSignInBtn.textContent = t("auth_sign_in");
+    authSignUpToggle.textContent = t("auth_create_instead");
+    document.body.classList.remove("auth-signup");
+  }
+  authError.textContent = "";
+}
+authSignUpToggle?.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
+
+authForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  authError.textContent = "";
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  const displayName = authName.value.trim();
+  if (!email || !password) return;
+  authSignInBtn.disabled = true;
+  authSignInBtn.textContent = t(authMode === "signup" ? "auth_creating" : "auth_signing_in");
+  try {
+    const res = await fetch(`/api/auth/${authMode === "signup" ? "signup" : "login"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, displayName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Auth failed");
+    authToken = data.token;
+    authUser = data.user;
+    persistAuth();
+    sfx("ding"); haptic([10, 50, 10]); setMascotState("happy", 1500);
+    showScreen("upload");
+    refreshSubjectChips();
+  } catch (err) {
+    authError.textContent = err.message || "Sign in failed";
+    sfx("buzzer"); haptic(80);
+  } finally {
+    authSignInBtn.disabled = false;
+    setAuthMode(authMode); // resets button label
+  }
+});
+
+document.getElementById("logoutBtn")?.addEventListener("click", () => {
+  if (!confirm("Sign out?")) return;
+  authToken = null; authUser = null; persistAuth();
+  imageCache.clear(); audioCache.clear();
+  showScreen("login");
+});
+
+// =============================================================
+//  LIBRARY full-screen page
+// =============================================================
+const libraryBack = document.getElementById("libraryBack");
+const libraryList2 = document.getElementById("libraryList2");
+const libraryEmpty2 = document.getElementById("libraryEmpty2");
+const savedList2 = document.getElementById("savedList2");
+const savedEmpty2 = document.getElementById("savedEmpty2");
+const newSubjectBtn2 = document.getElementById("newSubjectBtn2");
+const newSubjectForm2 = document.getElementById("newSubjectForm2");
+const nsTitle2 = document.getElementById("nsTitle2");
+const nsEmoji2 = document.getElementById("nsEmoji2");
+const nsColor2 = document.getElementById("nsColor2");
+const nsCreate2 = document.getElementById("nsCreate2");
+const nsCancel2 = document.getElementById("nsCancel2");
+
+libraryBack?.addEventListener("click", () => showScreen("upload"));
+
+document.querySelectorAll(".lib-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const target = tab.dataset.tab;
+    document.querySelectorAll(".lib-tab").forEach((t2) => t2.classList.toggle("active", t2 === tab));
+    document.querySelectorAll("[data-tab-panel]").forEach((p) => {
+      p.classList.toggle("hidden", p.dataset.tabPanel !== target);
+    });
+    if (target === "saved") refreshSavedListView();
+    sfx("boop"); haptic(6);
+  });
+});
+
+newSubjectBtn2?.addEventListener("click", () => {
+  newSubjectForm2.classList.remove("hidden");
+  nsTitle2.value = "";
+  nsEmoji2.value = "📚";
+  setTimeout(() => nsTitle2.focus(), 30);
+});
+nsCancel2?.addEventListener("click", () => newSubjectForm2.classList.add("hidden"));
+nsCreate2?.addEventListener("click", async () => {
+  const title = nsTitle2.value.trim();
+  if (!title) return showToast(t("toast_subject_required"));
+  try {
+    nsCreate2.disabled = true;
+    await createSubject({ title, emoji: (nsEmoji2.value || "📚").slice(0, 3), color: nsColor2.value });
+    newSubjectForm2.classList.add("hidden");
+    await renderLibraryPage();
+    refreshSubjectChips();
+  } catch (e) { showToast(e.message || t("toast_subject_create_failed")); }
+  finally { nsCreate2.disabled = false; }
+});
+
+async function renderLibraryPage() {
+  if (!libraryList2) return;
+  libraryList2.innerHTML = "";
+  const subjects = await fetchSubjects();
+  if (!subjects.length) {
+    libraryEmpty2.classList.remove("hidden");
+    return;
+  }
+  libraryEmpty2.classList.add("hidden");
+  for (const s of subjects) {
+    const card = document.createElement("div");
+    card.className = "subject-card";
+    card.style.borderLeft = `4px solid ${s.color || "#6b8cff"}`;
+    const countLabel = s.chapterCount === 1 ? t("chapter") : t("chapters");
+    card.innerHTML = `
+      <div class="sc-head">
+        <div class="sc-title"><span class="sc-emoji">${escapeHtml(s.emoji || "📚")}</span> ${escapeHtml(s.title)}</div>
+        <div class="sc-meta">
+          <span>${s.chapterCount} ${countLabel}</span>
+          <button class="sc-add" aria-label="Add chapter">＋</button>
+          <button class="sc-del" aria-label="Delete">×</button>
+        </div>
+      </div>
+      <div class="sc-chapters"></div>
+    `;
+    const chaptersEl = card.querySelector(".sc-chapters");
+    card.querySelector(".sc-del").addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      if (!confirm(t("delete_subject_confirm", { title: s.title }))) return;
+      await deleteSubject(s.id);
+      renderLibraryPage();
+      refreshSubjectChips();
+    });
+    card.querySelector(".sc-add").addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      settings.subject = s.id;
+      saveSettings();
+      applySubjectChipState();
+      showScreen("upload");
+      showToast(t("upload_for_subject", { title: s.title }));
+      document.getElementById("dropZone")?.click();
+    });
+    const chapters = await fetchChapters(s.id);
+    if (!chapters.length) {
+      const empty = document.createElement("div");
+      empty.className = "sc-empty";
+      empty.textContent = t("no_chapters");
+      chaptersEl.appendChild(empty);
+    } else {
+      chapters.forEach((ch, i) => {
+        const row = document.createElement("div");
+        row.className = "ch-row";
+        const d = new Date(ch.createdAt);
+        row.innerHTML = `
+          <div class="ch-num">${i + 1}</div>
+          <div class="ch-body">
+            <div class="ch-title">${escapeHtml(ch.title)}</div>
+            <div class="ch-meta">${ch.reels.length} reels · ${ch.quiz.length} quiz Qs · ${d.toLocaleDateString()}</div>
+          </div>
+          <button class="ch-del" aria-label="Delete chapter">×</button>
+        `;
+        row.addEventListener("click", () => playChapter(ch));
+        row.querySelector(".ch-del").addEventListener("click", async (ev) => {
+          ev.stopPropagation();
+          if (!confirm(t("delete_chapter_confirm", { title: ch.title }))) return;
+          await deleteChapter(ch.id);
+          renderLibraryPage();
+        });
+        chaptersEl.appendChild(row);
+      });
+    }
+    libraryList2.appendChild(card);
+  }
+}
+
+async function refreshSavedListView() {
+  if (!savedList2) return;
+  savedList2.innerHTML = "";
+  const arr = await fetchSavedReels();
+  if (!arr.length) { savedEmpty2.classList.remove("hidden"); return; }
+  savedEmpty2.classList.add("hidden");
+  arr.forEach((r) => {
+    const card = document.createElement("div");
+    card.className = "saved-item";
+    card.style.background = `linear-gradient(135deg, ${r.accentColor || "#ff3b6b"} 0%, #1a1a3a 100%)`;
+    card.innerHTML = `
+      <div class="si-title">${escapeHtml(r.title || "Untitled")}</div>
+      <div class="si-narr">${escapeHtml(stripPodcastTags(r.narration || "").slice(0, 130))}${(r.narration || "").length > 130 ? "…" : ""}</div>
+      <div class="si-meta">
+        <span class="si-voice">🎙 ${escapeHtml(r.voice || "Aoede")}</span>
+        <button class="si-remove">${escapeHtml(t("remove"))}</button>
+      </div>
+    `;
+    card.querySelector(".si-remove").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await deleteSavedReel(r.id);
+      refreshSavedListView();
+      refreshStatsBadge();
+    });
+    card.addEventListener("click", () => {
+      // Replay this saved reel as a one-reel session
+      const reel = {
+        title: r.title,
+        narration: r.narration,
+        background_prompt: r.backgroundPrompt,
+        voice: r.voice,
+        accent_color: r.accentColor,
+        card: r.cardJson ? safeParse(r.cardJson) : null,
+      };
+      currentDoc = { reels: [reel], quiz: [] };
+      currentReels = [reel];
+      currentQuiz = [];
+      imageCache.clear(); imageInflight.clear();
+      audioCache.clear(); audioInflight.clear();
+      if (r.imageUrl) imageCache.set(0, r.imageUrl);
+      if (r.audioUrl) audioCache.set(0, r.audioUrl);
+      currentChapterId = null;
+      renderAll();
+      showScreen("reels");
+      ensureImage(0); ensureAudio(0);
+      requestAnimationFrame(() => {
+        const first = reelsContainer.firstElementChild;
+        if (first) {
+          first.scrollIntoView({ behavior: "instant", block: "start" });
+          activateReel(first, 0);
+        }
+      });
+    });
+    savedList2.appendChild(card);
+  });
+}
+function safeParse(s) { try { return JSON.parse(s); } catch { return null; } }
+
+// =============================================================
+//  Server-side saved reels (replaces localStorage)
+// =============================================================
+async function fetchSavedReels() {
+  try {
+    const r = await api("/api/saved");
+    const data = await r.json();
+    return data.saved || [];
+  } catch { return []; }
+}
+async function postSavedReel(payload) {
+  const r = await api("/api/saved", { method: "POST", body: payload });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || "save failed");
+  return data.saved;
+}
+async function deleteSavedReel(id) {
+  await api(`/api/saved/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+// Update the action sidebar Save button: server-side now
+saveBtn.onclick = async (e) => {
+  e.stopPropagation();
+  if (!currentReelEl || currentReelEl.dataset.kind !== "narration") return;
+  const idx = Number(currentReelEl.dataset.idx);
+  // Find the reel — could be the active reel from currentReels OR mapped via the slot sequence
+  const reel = currentReels.find((r) => r.title && currentReelEl.querySelector(".reel-title")?.textContent === r.title)
+            || currentReels[idx];
+  if (!reel) return;
+  try {
+    if (saveBtn.classList.contains("saved")) {
+      // Already saved — find it on the server and remove
+      const arr = await fetchSavedReels();
+      const existing = arr.find((s) => s.title === reel.title && s.narration === reel.narration);
+      if (existing) await deleteSavedReel(existing.id);
+      saveBtn.classList.remove("saved");
+      showToast(t("toast_removed"));
+      sfx("boop"); haptic(8);
+    } else {
+      await postSavedReel({
+        title: reel.title,
+        narration: reel.narration,
+        backgroundPrompt: reel.background_prompt,
+        voice: reel.voice,
+        accentColor: reel.accent_color,
+        imageUrl: imageCache.get(idx) || "",
+        audioUrl: audioCache.get(idx) || "",
+        card: reel.card || null,
+      });
+      saveBtn.classList.add("saved");
+      saveBtn.classList.remove("popping");
+      void saveBtn.offsetWidth;
+      saveBtn.classList.add("popping");
+      showToast(t("toast_saved"));
+      sfx("ding"); haptic(10);
+    }
+    refreshStatsBadge();
+  } catch (err) {
+    showToast(err.message || "Couldn't save");
+  }
+};
+
+// Replace refreshActionsForReel's saved-state check to call server (cached)
+let savedTitlesCache = new Set();
+async function refreshSavedTitlesCache() {
+  try {
+    const arr = await fetchSavedReels();
+    savedTitlesCache = new Set(arr.map((r) => `${r.title}::${r.narration}`));
+  } catch {}
+}
+const _origRefresh = refreshActionsForReel;
+refreshActionsForReel = function(reelEl) {
+  _origRefresh(reelEl);
+  if (!authToken) return;
+  if (reelEl.dataset.kind !== "narration") return;
+  const idx = Number(reelEl.dataset.idx);
+  const reel = currentReels[idx];
+  if (!reel) return;
+  const key = `${reel.title}::${reel.narration}`;
+  saveBtn.classList.toggle("saved", savedTitlesCache.has(key));
+};
+
+// Override the upload-screen "Saved (N)" pill to open library page on the saved tab
+savedBtn?.addEventListener("click", (e) => {
+  e.preventDefault(); e.stopPropagation();
+  showScreen("library");
+  document.querySelector('.lib-tab[data-tab="saved"]')?.click();
+}, true);
+
+// Library button on upload screen → full-screen library page (replaces modal)
+libraryBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  showScreen("library");
+  document.querySelector('.lib-tab[data-tab="subjects"]')?.click();
+  renderLibraryPage();
+  refreshSavedTitlesCache();
+}, true);
+
+// =============================================================
+//  Aggressive prefetch — kick off ALL reels' assets after render
+//  so users don't wait when scrolling
+// =============================================================
+const _origActivate = activateReel;
+activateReel = async function(reelEl, idx) {
+  await _origActivate(reelEl, idx);
+  // Prefetch +1 +2 +3, plus -1 (going back) — beyond what _origActivate does
+  for (let i = idx + 1; i <= idx + 3; i++) {
+    if (i < currentReels.length) { ensureImage(i); ensureAudio(i); }
+  }
+  if (idx - 1 >= 0) { ensureImage(idx - 1); ensureAudio(idx - 1); }
+};
+
+function backgroundFillAllAssets() {
+  // Generate every reel's image+audio in the background, with 2 concurrent workers
+  if (!currentReels.length) return;
+  const total = currentReels.length;
+  let next = 0;
+  const worker = async () => {
+    while (next < total) {
+      const my = next++;
+      try { await ensureImage(my); } catch {}
+      try { await ensureAudio(my); } catch {}
+    }
+  };
+  worker(); worker(); // 2 concurrent
+}
+
+// =============================================================
+//  Auth gate on first load
+// =============================================================
+(async function bootstrap() {
+  if (!authToken) {
+    showScreen("login");
+    setAuthMode("signin");
+    return;
+  }
+  // Validate token by fetching /me
+  try {
+    const r = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${authToken}` } });
+    if (!r.ok) throw new Error("invalid");
+    const data = await r.json();
+    authUser = data.user;
+    persistAuth();
+    showScreen("upload");
+    refreshSubjectChips();
+    refreshSavedTitlesCache();
+  } catch {
+    authToken = null; authUser = null; persistAuth();
+    showScreen("login");
+    setAuthMode("signin");
+  }
+})();
 
 // =============================================================
 //  Right-side action sidebar (like, save, speed, replay, mute)

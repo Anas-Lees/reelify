@@ -11,6 +11,14 @@ db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    passwordHash TEXT NOT NULL,
+    displayName TEXT DEFAULT '',
+    createdAt INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS subjects (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -34,11 +42,90 @@ db.exec(`
     FOREIGN KEY(subjectId) REFERENCES subjects(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS saved_reels (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    title TEXT NOT NULL,
+    narration TEXT NOT NULL,
+    backgroundPrompt TEXT DEFAULT '',
+    voice TEXT DEFAULT '',
+    accentColor TEXT DEFAULT '',
+    imageUrl TEXT DEFAULT '',
+    audioUrl TEXT DEFAULT '',
+    cardJson TEXT DEFAULT '',
+    savedAt INTEGER NOT NULL,
+    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_chapters_subject ON chapters(subjectId);
+  CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_reels(userId);
 `);
 
+// Idempotent migration: add userId to subjects if not present
+try { db.exec(`ALTER TABLE subjects ADD COLUMN userId TEXT`); } catch {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_subjects_user ON subjects(userId)`); } catch {}
+
+// ----- Users -----
+export function getUserByEmail(email) {
+  return db.prepare("SELECT * FROM users WHERE email = ?").get(String(email || "").toLowerCase());
+}
+export function getUser(id) {
+  return db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+}
+export function createUser({ email, passwordHash, displayName }) {
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  db.prepare(`INSERT INTO users (id, email, passwordHash, displayName, createdAt) VALUES (?, ?, ?, ?, ?)`)
+    .run(id, String(email).toLowerCase(), passwordHash, String(displayName || "").slice(0, 80), now);
+  return getUser(id);
+}
+
+// First signup claims any orphan subjects (single-user-on-fresh-deploy convenience).
+export function claimOrphanSubjectsFor(userId) {
+  return db.prepare(`UPDATE subjects SET userId = ? WHERE userId IS NULL OR userId = ''`).run(userId).changes;
+}
+
+// ----- Saved reels -----
+export function listSavedReels(userId) {
+  return db.prepare(`SELECT * FROM saved_reels WHERE userId = ? ORDER BY savedAt DESC LIMIT 200`).all(userId);
+}
+export function findSavedReel(userId, title, narration) {
+  return db.prepare(`SELECT * FROM saved_reels WHERE userId = ? AND title = ? AND narration = ? LIMIT 1`).get(userId, title, narration);
+}
+export function createSavedReel({ userId, title, narration, backgroundPrompt, voice, accentColor, imageUrl, audioUrl, card }) {
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  db.prepare(`INSERT INTO saved_reels (id, userId, title, narration, backgroundPrompt, voice, accentColor, imageUrl, audioUrl, cardJson, savedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(
+      id, userId,
+      String(title || "Untitled").slice(0, 200),
+      String(narration || "").slice(0, 4000),
+      String(backgroundPrompt || "").slice(0, 1000),
+      String(voice || "").slice(0, 40),
+      String(accentColor || "").slice(0, 16),
+      String(imageUrl || "").slice(0, 500),
+      String(audioUrl || "").slice(0, 500),
+      card ? JSON.stringify(card).slice(0, 4000) : "",
+      now
+    );
+  return db.prepare(`SELECT * FROM saved_reels WHERE id = ?`).get(id);
+}
+export function deleteSavedReel(id, userId) {
+  return db.prepare(`DELETE FROM saved_reels WHERE id = ? AND userId = ?`).run(id, userId).changes;
+}
+
 // ----- Subjects -----
-export function listSubjects() {
+export function listSubjects(userId) {
+  if (userId) {
+    return db.prepare(`
+      SELECT s.*, COUNT(c.id) as chapterCount
+      FROM subjects s
+      LEFT JOIN chapters c ON c.subjectId = s.id
+      WHERE s.userId = ?
+      GROUP BY s.id
+      ORDER BY s.createdAt DESC
+    `).all(userId);
+  }
   return db.prepare(`
     SELECT s.*, COUNT(c.id) as chapterCount
     FROM subjects s
@@ -48,11 +135,11 @@ export function listSubjects() {
   `).all();
 }
 
-export function createSubject({ title, description, color, emoji }) {
+export function createSubject({ title, description, color, emoji, userId }) {
   const id = crypto.randomUUID();
   const now = Date.now();
-  db.prepare(`INSERT INTO subjects (id, title, description, color, emoji, createdAt) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(id, String(title || "Untitled").slice(0, 80), String(description || "").slice(0, 280), color || "#6b8cff", emoji || "📚", now);
+  db.prepare(`INSERT INTO subjects (id, title, description, color, emoji, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, String(title || "Untitled").slice(0, 80), String(description || "").slice(0, 280), color || "#6b8cff", emoji || "📚", now, userId || null);
   return getSubject(id);
 }
 
