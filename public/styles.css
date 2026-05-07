@@ -661,13 +661,48 @@ h1 {
 .reel-card-lang {
   position: absolute;
   top: 10px;
-  right: 12px;
+  right: 40px;
   font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
 }
+.reel-card-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.reel-card-close:hover { background: rgba(255, 80, 95, 0.4); transform: scale(1.1); }
+.reel-card.dragging {
+  cursor: grabbing;
+  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.55);
+  transform-origin: center;
+  z-index: 9;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.reel-card.dismissed {
+  opacity: 0;
+  transform: scale(0.92) translateY(-8px) !important;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+html[dir="rtl"] .reel-card-close { right: auto; left: 6px; }
+html[dir="rtl"] .reel-card-lang { right: auto; left: 40px; }
 .reel-card-body {
   margin: 0;
   font-size: 15px;
@@ -706,13 +741,15 @@ h1 {
 }
 .reel-card-definition .reel-card-body { font-size: 16px; }
 
-/* When a reel has a card, captions become smaller and live at the bottom */
+/* When a reel has a card, captions sit JUST UNDER the card — not pushed to
+   the bottom of the screen. Use a small fixed margin so the card and caption
+   read as one stacked block right under the title. */
 .reel.has-card .reel-caption-stage {
   flex: 0 0 auto;
-  margin-top: auto;
-  margin-bottom: 14px;
-  min-height: 70px;
-  max-height: 110px;
+  margin-top: 14px;
+  margin-bottom: 0;
+  min-height: 64px;
+  max-height: 140px;
 }
 .reel.has-card .caption-chunk { font-size: 22px; }
 @media (max-width: 420px) {
@@ -2831,7 +2868,12 @@ body[data-caption-size="large"]  .caption-chunk { font-size: 42px; }
   flex-direction: column;
   gap: 14px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
+.checkpoint-card::-webkit-scrollbar { width: 4px; }
+.checkpoint-card::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
 .cp-tag {
   align-self: flex-start;
   background: linear-gradient(135deg, #ff8c00, #ffd166);
@@ -2906,7 +2948,12 @@ body[data-caption-size="large"]  .caption-chunk { font-size: 42px; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
+.quiz-card::-webkit-scrollbar { width: 4px; }
+.quiz-card::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
 
 .quiz-meta-row {
   display: flex;

@@ -501,7 +501,7 @@ const SPEEDS = [0.75, 1, 1.25, 1.5];
 const PACE_TO_SPEED_IDX = { chill: 0, normal: 1, fast: 2 };
 let speedIdx = PACE_TO_SPEED_IDX[settings.pace] ?? 1;
 let isMuted = false;
-let reelLikes = {}; // idx -> count
+let reelLikes = {}; // slot idx -> boolean (liked or not)
 
 function formatCount(n) {
   if (n < 1000) return String(n);
@@ -801,11 +801,26 @@ function buildReel(reel, idx, total) {
   titleWrap.appendChild(titleEl);
 
   // Optional card (math / code / quote / definition / list)
+  // Long-press to drag, × to dismiss.
   let cardEl = null;
   if (reel.card && reel.card.type && reel.card.content) {
     reelEl.classList.add("has-card");
     cardEl = document.createElement("div");
     cardEl.className = `reel-card reel-card-${reel.card.type}`;
+    cardEl.dataset.noTap = "1"; // don't trigger reel tap zones when interacting with the card
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "reel-card-close";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      cardEl.classList.add("dismissed");
+      setTimeout(() => cardEl.remove(), 240);
+      sfx("boop"); haptic(8);
+    });
+    cardEl.appendChild(closeBtn);
+
     if (reel.card.title) {
       const cardTitle = document.createElement("div");
       cardTitle.className = "reel-card-title";
@@ -822,6 +837,8 @@ function buildReel(reel, idx, total) {
     cardBody.className = "reel-card-body";
     cardBody.textContent = String(reel.card.content).slice(0, 600);
     cardEl.appendChild(cardBody);
+
+    makeCardDraggable(cardEl);
   }
 
   const captionStage = document.createElement("div");
@@ -1061,6 +1078,53 @@ function renderChunkedCaption(text) {
 
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Long-press to drag a reel card. After ~250ms hold the card enters drag mode
+// and follows the finger; release stops dragging and the card stays where you
+// dropped it for the rest of the session.
+function makeCardDraggable(cardEl) {
+  let pressTimer = null;
+  let dragMode = false;
+  let startX = 0, startY = 0;
+  let cardX = 0, cardY = 0;
+
+  function onDown(e) {
+    if (e.target.closest(".reel-card-close")) return;
+    pressTimer = setTimeout(() => {
+      dragMode = true;
+      cardEl.classList.add("dragging");
+      const rect = cardEl.getBoundingClientRect();
+      const m = (cardEl.style.transform || "").match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+      cardX = m ? parseFloat(m[1]) : 0;
+      cardY = m ? parseFloat(m[2]) : 0;
+      startX = e.clientX;
+      startY = e.clientY;
+      try { cardEl.setPointerCapture?.(e.pointerId); } catch {}
+      try { navigator.vibrate?.(20); } catch {}
+    }, 250);
+  }
+  function onMove(e) {
+    if (!dragMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    cardEl.style.transform = `translate(${cardX + dx}px, ${cardY + dy}px)`;
+  }
+  function onUp() {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    if (dragMode) {
+      dragMode = false;
+      cardEl.classList.remove("dragging");
+    }
+  }
+
+  cardEl.addEventListener("pointerdown", onDown);
+  cardEl.addEventListener("pointermove", onMove);
+  cardEl.addEventListener("pointerup", onUp);
+  cardEl.addEventListener("pointercancel", onUp);
+  cardEl.addEventListener("pointerleave", onUp);
 }
 
 function hexToGlow(hex) {
@@ -1402,6 +1466,30 @@ async function speakReel(reelEl, idx) {
   audio.addEventListener("play", () => {
     reelEl.classList.remove("paused");
     if (!activeRafId) tick();
+  });
+
+  // If the audio file 404s, the codec isn't supported, or anything else makes
+  // the <audio> element fail, silently switch to the device voice.
+  let fellBack = false;
+  function fallbackToBrowserVoice(why) {
+    if (fellBack) return;
+    fellBack = true;
+    if (currentAudio === audio) currentAudio = null;
+    if (activeRafId) { cancelAnimationFrame(activeRafId); activeRafId = null; }
+    try { audio.pause(); audio.src = ""; } catch {}
+    if (currentReelEl === reelEl) {
+      console.warn("[audio] falling back to device voice:", why);
+      browserSpeakReel(reelEl, idx, chunkEls);
+    }
+  }
+  audio.addEventListener("error", () => fallbackToBrowserVoice("error event"));
+  audio.addEventListener("stalled", () => {
+    // Give the network a few seconds before giving up
+    setTimeout(() => {
+      if (!fellBack && audio.readyState < 2 && currentReelEl === reelEl) {
+        fallbackToBrowserVoice("stalled");
+      }
+    }, 8000);
   });
 
   try {
@@ -2406,20 +2494,25 @@ const muteBtn = actionsEl.querySelector('[data-action="mute"]');
 
 actionsEl.addEventListener("click", (e) => e.stopPropagation());
 
+// Like is a binary toggle now — liked or not. No counter.
 likeBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  if (!currentReelEl || currentReelEl.dataset.kind === "quiz") return;
+  if (!currentReelEl || currentReelEl.dataset.kind !== "narration") return;
   const idx = Number(currentReelEl.dataset.idx);
-  reelLikes[idx] = (reelLikes[idx] || 0) + 1;
-  likeBtn.querySelector(".ra-count").textContent = formatCount(reelLikes[idx]);
-  likeBtn.classList.add("liked");
+  const liked = !reelLikes[idx];
+  reelLikes[idx] = liked;
+  likeBtn.classList.toggle("liked", liked);
   likeBtn.classList.remove("popping");
   void likeBtn.offsetWidth;
-  likeBtn.classList.add("popping");
-  const r = likeBtn.getBoundingClientRect();
-  const reelR = currentReelEl.getBoundingClientRect();
-  spawnHearts(currentReelEl, r.left - reelR.left + r.width / 2, r.top - reelR.top + r.height / 2);
-  sfx("heart"); haptic([10, 30, 10]);
+  if (liked) {
+    likeBtn.classList.add("popping");
+    const r = likeBtn.getBoundingClientRect();
+    const reelR = currentReelEl.getBoundingClientRect();
+    spawnHearts(currentReelEl, r.left - reelR.left + r.width / 2, r.top - reelR.top + r.height / 2);
+    sfx("heart"); haptic([10, 30, 10]);
+  } else {
+    sfx("boop"); haptic(8);
+  }
 });
 
 // Save button click is wired below in the "Saved reels v2" section
@@ -2508,55 +2601,7 @@ shareBtn?.addEventListener("click", async (e) => {
   }
 });
 
-// Reactions picker
-const reactBtn = actionsEl.querySelector('[data-action="react"]');
-const reactionsPicker = document.getElementById("reactionsPicker");
-reactBtn?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  if (!currentReelEl || currentReelEl.dataset.kind === "quiz") return;
-  const open = !reactionsPicker.classList.contains("hidden");
-  if (open) reactionsPicker.classList.add("hidden");
-  else {
-    // Position picker next to react button
-    const r = reactBtn.getBoundingClientRect();
-    reactionsPicker.style.top = (r.top + r.height / 2) + "px";
-    reactionsPicker.style.right = (window.innerWidth - r.left + 8) + "px";
-    reactionsPicker.classList.remove("hidden");
-  }
-});
-reactionsPicker?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const btn = e.target.closest(".rp-emoji");
-  if (!btn || !currentReelEl) return;
-  spawnEmojiBurst(currentReelEl, btn.dataset.emoji);
-  reactionsPicker.classList.add("hidden");
-});
-document.addEventListener("click", () => {
-  if (reactionsPicker && !reactionsPicker.classList.contains("hidden")) {
-    reactionsPicker.classList.add("hidden");
-  }
-});
-
-function spawnEmojiBurst(reelEl, emoji) {
-  // Burst from bottom-center upward, like TikTok reaction
-  const cx = reelEl.clientWidth / 2;
-  const cy = reelEl.clientHeight - 120;
-  for (let i = 0; i < 9; i++) {
-    setTimeout(() => {
-      const e = document.createElement("div");
-      e.className = "tap-heart small reaction";
-      e.textContent = emoji;
-      e.style.left = (cx + (Math.random() - 0.5) * 200) + "px";
-      e.style.top = cy + "px";
-      e.style.setProperty("--drift-x", ((Math.random() - 0.5) * 240) + "px");
-      e.style.setProperty("--drift-y", (-260 - Math.random() * 200) + "px");
-      e.style.setProperty("--rot", ((Math.random() - 0.5) * 90) + "deg");
-      e.style.fontSize = (24 + Math.random() * 20) + "px";
-      reelEl.appendChild(e);
-      setTimeout(() => e.remove(), 1700);
-    }, i * 60);
-  }
-}
+// (Reactions emoji picker was removed — like is the single binary action.)
 
 // Ask AI
 const askBtn = actionsEl.querySelector('[data-action="ask"]');
@@ -3187,14 +3232,13 @@ function refreshActionsForReel(reelEl) {
   actionsEl.classList.toggle("hidden", hideActions);
   if (hideActions) return;
 
-  // Slot index for like-count keying; reel internal index for currentReels lookup.
+  // Slot index for like state; reel internal index for currentReels lookup.
   const slotIdx = Number(reelEl.dataset.idx);
   const reelIdx = Number(reelEl.dataset.reelIdx ?? slotIdx);
   const reel = currentReels[reelIdx];
 
-  // Like count (keyed by slot — likes belong to the rendered slot)
-  likeBtn.querySelector(".ra-count").textContent = formatCount(reelLikes[slotIdx] || 0);
-  likeBtn.classList.toggle("liked", (reelLikes[slotIdx] || 0) > 0);
+  // Like is binary now — just reflect liked / not liked.
+  likeBtn.classList.toggle("liked", !!reelLikes[slotIdx]);
 
   // Saved state — uses the server-side cache populated by refreshSavedTitlesCache()
   if (reel) {
