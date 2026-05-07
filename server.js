@@ -751,8 +751,12 @@ STRICT COMPOSITION RULES:
 
     res.json({ url: `/images/${filename}` });
   } catch (e) {
-    console.error("Image error:", e);
-    res.status(500).json({ error: e.message || "Image generation failed" });
+    console.error("Image error:", e?.message || e);
+    const msg = String(e?.message || "");
+    if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) {
+      return res.status(503).json({ error: "Image quota exceeded — try again in a minute", quota: true });
+    }
+    res.status(500).json({ error: "Image generation failed" });
   }
 });
 
@@ -863,8 +867,12 @@ app.post("/api/tts", requireAuth, async (req, res) => {
 
     res.json({ url: `/audio/${filename}`, cached: false });
   } catch (e) {
-    console.error("TTS error:", e);
-    res.status(500).json({ error: e.message || "TTS failed" });
+    console.error("TTS error:", e?.message || e);
+    const msg = String(e?.message || "");
+    if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) {
+      return res.status(503).json({ error: "Voice quota exceeded", quota: true });
+    }
+    res.status(500).json({ error: "Voice generation failed" });
   }
 });
 
@@ -897,8 +905,12 @@ Your answer:`;
 
     res.json({ answer: result.text || "" });
   } catch (e) {
-    console.error("Ask error:", e);
-    res.status(500).json({ error: e.message || "Ask failed" });
+    console.error("Ask error:", e?.message || e);
+    const msg = String(e?.message || "");
+    if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) {
+      return res.status(503).json({ error: "AI quota exceeded — try again in a minute", quota: true });
+    }
+    res.status(500).json({ error: "Couldn't answer right now" });
   }
 });
 

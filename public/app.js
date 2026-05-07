@@ -1287,17 +1287,14 @@ async function speakReel(reelEl, idx) {
   allWordEls.forEach((w) => w.classList.remove("active", "spoken"));
 
   reelEl.classList.add("loading-audio");
-  let audioUrl;
-  try {
-    audioUrl = await ensureAudio(idx);
-  } catch (e) {
-    console.warn("TTS failed, using browser fallback", e);
-    showToast("Voice unavailable, using device voice");
-    reelEl.classList.remove("loading-audio");
-    return browserSpeakReel(reelEl, idx, chunkEls);
-  }
+  // ensureAudio never throws — resolves to URL on success, null on failure
+  // (quota / network / etc). Null means: silently use the browser's device voice.
+  const audioUrl = await ensureAudio(idx);
   reelEl.classList.remove("loading-audio");
   if (currentReelEl !== reelEl) return;
+  if (!audioUrl) {
+    return browserSpeakReel(reelEl, idx, chunkEls);
+  }
 
   const audio = new Audio(audioUrl);
   audio.preload = "auto";
@@ -1519,11 +1516,14 @@ function ensureImage(idx) {
 }
 
 // ----- Audio generation (with per-reel voice) -----
+// Resolves to a URL on success, or null on failure (quota, network, etc.).
+// Never rejects — that way fire-and-forget prefetch can't produce unhandled
+// rejections that bubble up to the global error overlay.
 function ensureAudio(idx) {
   if (audioCache.has(idx)) return Promise.resolve(audioCache.get(idx));
   if (audioInflight.has(idx)) return audioInflight.get(idx);
   const reel = currentReels[idx];
-  if (!reel) return Promise.reject(new Error("no reel"));
+  if (!reel) return Promise.resolve(null);
 
   const voice = (settings.voiceOverride && settings.voiceOverride !== "auto") ? settings.voiceOverride : reel.voice;
   const voiceB = (settings.voiceB && settings.voiceB !== "auto") ? settings.voiceB : (reel.voiceB || "Charon");
@@ -1543,7 +1543,14 @@ function ensureAudio(idx) {
     })
     .catch((e) => {
       audioInflight.delete(idx);
-      throw e;
+      const msg = String(e?.message || e);
+      // Suppress noise; fall back to device voice silently in the caller.
+      if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) {
+        console.warn("[tts] quota — falling back to device voice", msg.slice(0, 120));
+      } else {
+        console.warn("[tts] failed", msg.slice(0, 200));
+      }
+      return null; // never throw — keeps fire-and-forget callers safe
     });
 
   audioInflight.set(idx, p);
