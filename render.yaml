@@ -7,4 +7,8 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: GEMINI_API_KEY
-        sync: false
+        sync: false   # paste your AI Studio key in the Render dashboard
+      - key: DATABASE_URL
+        sync: false   # Neon / Supabase / any Postgres connection string
+      - key: JWT_SECRET
+        generateValue: true   # Render auto-generates a strong random; reused across redeploys

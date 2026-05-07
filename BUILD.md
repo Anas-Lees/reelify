@@ -1,64 +1,78 @@
 # Reelify — Phone build & deploy
 
-After this, your phone runs Reelify standalone. Your laptop is never in the loop again.
+After setup, the app runs entirely in the cloud. Your phone talks to Render-hosted backend, your data lives in Neon Postgres, and your account survives every redeploy.
 
-**Hosting research outcome (May 2026):** I checked Netlify, Fly.io, Koyeb, Railway, Northflank. Verdict: **Render is still the only "real" free tier left** that runs a persistent Express+SQLite server. Netlify is serverless-only (60s function cap, no state) — fundamentally can't run our backend. Fly.io and Koyeb killed their free tiers in 2024–2025. We're staying on Render.
+**Hosting research outcome (May 2026):** Stay on Render for compute. Netlify can't run a persistent Express server. Fly.io and Koyeb killed their free tiers in 2024–2025. **Database** moved off Render's ephemeral disk to **Neon** (free 0.5 GB Postgres, persistent forever) so your account doesn't get wiped on every redeploy.
 
 ---
 
 ## Current state
 
-✅ Repo created: **https://github.com/Anas-Lees/reelify**
-✅ All code pushed (minus the workflow file — that one needs an extra GitHub permission, see below)
+✅ Repo: **https://github.com/Anas-Lees/reelify**
+✅ Code uses Postgres now — every account / subject / chapter / saved reel persists across redeploys
 ✅ `Dockerfile`, `render.yaml`, `capacitor.config.json`, full `android/` project all committed
 
 ---
 
-## What's left — 3 things you do, ~10 minutes total
+## What's left — 4 things you do (~10 min total)
 
-### 1. Grant `workflow` scope to gh CLI (30 sec)
+### 1. Grant `workflow` scope to gh CLI (only if you haven't already)
 
-GitHub blocks pushing files to `.github/workflows/*` unless your CLI token has the `workflow` scope. Run this **once** in any terminal:
+Only needed once, only if you want me to push the GitHub Actions APK build workflow from this session:
 
 ```bash
 gh auth refresh -h github.com -s workflow
 ```
 
-It opens your browser, you click "Authorize," done. Tell me when it's done and I'll push the workflow file from this session.
+### 2. Sign up Neon and create a Postgres database (free)
 
-> Alternative if you want to skip the CLI step: open https://github.com/Anas-Lees/reelify in the browser, click **Add file → Create new file**, name it `.github/workflows/build-apk.yml` and paste the contents of the local `.github/workflows/build-apk.yml` file. Same result.
+1. Go to **https://neon.tech** and sign up (GitHub login works).
+2. Create a new project → name it anything (e.g. `reelify`).
+3. On the dashboard, copy the **connection string** — looks like:
+   ```
+   postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
+   ```
+4. That's your `DATABASE_URL`. Hold on to it for step 3.
 
-### 2. Deploy the backend to Render
+(Free tier: 0.5 GB storage, paused after 5 min idle, instantly resumes on next query. Plenty for a personal Reelify install.)
 
-**One-click deploy URL** (uses the `render.yaml` Blueprint):
+### 3. Deploy backend to Render
+
+**One-click Blueprint URL:**
 
 👉 **https://render.com/deploy?repo=https://github.com/Anas-Lees/reelify**
 
-Click that, sign in with GitHub, then:
-- Render reads `render.yaml`, proposes a "reelify" web service.
-- It'll ask for the `GEMINI_API_KEY` env var — paste your key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-- Click **Apply**. First build takes ~3-5 minutes (Docker).
-- When green, copy the public URL (looks like `https://reelify-xxxx.onrender.com`).
-- **Send me that URL** and I'll do the rest.
+Click that, sign in with GitHub. Render reads `render.yaml` and asks for the env vars:
 
-### 3. (After you tell me the URL) — I trigger the APK build
+- **`GEMINI_API_KEY`** — your AI Studio key from https://aistudio.google.com/apikey
+- **`DATABASE_URL`** — the Neon connection string from step 2
+- **`JWT_SECRET`** — Render will offer to **auto-generate** a strong random one. Accept it. Reused on every redeploy so your sessions stay valid.
 
-Once you give me the Render URL, I'll:
-- Trigger the GitHub Actions workflow with `gh workflow run` and your URL.
-- Wait for the build (~3-5 min).
-- Download the APK with `gh run download`.
-- Place it at `E:\webappgrad\reelify-debug-apk.zip` so you can pull it off this machine, or ZIP it and tell you exactly where.
+Click **Apply**. First build takes ~3-5 min (Docker).
 
-You then sideload it on your S24:
-- Email yourself `app-debug.apk` or drop in Drive.
-- Tap to install. Allow unknown sources for the source app when prompted.
-- Samsung Auto Blocker may intercept — temporarily disable in Settings → Security and privacy → Auto Blocker, install, then re-enable.
+When live, copy the public URL (looks like `https://reelify-xxxx.onrender.com`).
+
+> **Heads up — Render free tier sleeps after 15 min of no traffic.** First request after sleep takes ~30-60 seconds. After that it's fast. **Your data lives in Neon, not on Render's disk, so redeploys don't lose anything.**
+
+### 4. Build the APK (optional — only if reinstalling)
+
+You only need to rebuild the APK if `capacitor.config.json` changed (e.g. backend URL).
+
+In your GitHub repo → **Actions** tab → **"Build Android APK"** → **Run workflow** → paste your Render URL into the **Backend URL** input → wait ~3-5 min → download `reelify-debug-apk.zip` from Artifacts.
+
+Email yourself the APK or drop it in Drive, install on the S24 (allow unknown sources from that source).
+
+---
+
+## How updates work now
+
+- Edit any code → push to GitHub → Render auto-redeploys (~2 min) → next time you open the app on your phone, the new version is there. **No need to re-sign-up.**
+- Your Postgres data (account, subjects, chapters, saved reels, profile) stays put across every redeploy.
+- The APK is a thin shell pointed at the Render URL; only rebuild it if `capacitor.config.json` changes.
 
 ---
 
 ## iOS (later, when you have a Mac)
-
-iOS build needs macOS + Xcode — Apple-only. When you have a Mac:
 
 ```bash
 git clone https://github.com/Anas-Lees/reelify.git
@@ -69,25 +83,26 @@ npx cap sync ios
 npx cap open ios
 ```
 
-Xcode opens. Plug in iPhone, sign with your Apple ID (free Personal team works for sideload — apps expire every 7 days), hit **Run**.
-
-For permanent iOS install (no 7-day expiry), paid Apple Developer ($99/yr) or [Codemagic](https://codemagic.io) free cloud builds (500 min/mo).
+Xcode → plug in iPhone → sign with Apple ID → Run. Free Personal team works for 7-day sideload; paid Apple Developer for permanent install.
 
 ---
 
-## How updates work
+## Migration notes
 
-The APK is a thin shell that loads from your Render URL. **You never need to rebuild the APK to update the app.**
-
-- Edit `public/styles.css`, `public/app.js`, `server.js` → push to GitHub → Render auto-deploys → next time you open the app on your phone, it's the new version.
-- Only rebuild the APK if you change `capacitor.config.json` itself.
+If you signed up *before* this Postgres push, your previous account is gone (it lived in the ephemeral SQLite). Sign up fresh once after the Neon switch and your account from then on persists forever.
 
 ---
 
-## If your library/saved data disappears
+## Troubleshooting
 
-Render free containers occasionally restart and wipe their internal disk (sleep ≠ wipe; but redeploys and rare resets do wipe). To make data permanent:
-- **Easy:** add Postgres on [neon.tech](https://neon.tech) free tier (1GB), I'll migrate the SQLite layer.
-- **Easier-but-paid:** $1/mo Render persistent disk.
+**`/api/health` returns OK but `/api/auth/me` returns 401**
+Your token was signed before `JWT_SECRET` got pinned. Sign in again — once with a stable secret, every future redeploy keeps you logged in.
 
-Tell me which when you want it and I'll wire it.
+**Server boots with "DATABASE_URL is not set"**
+Set it in Render → service → Environment → `DATABASE_URL` → paste your Neon connection string → Apply.
+
+**Library / saved reels show empty after a deploy**
+That should not happen anymore. If it does, hit `/api/version` and confirm `persistence: postgres` is in the response.
+
+**Generated images / audio are missing for a saved reel**
+Those still live on Render's ephemeral disk. They'll regenerate the next time you open that reel. To make them persistent too, the next step is moving them to Cloudflare R2 (free 10 GB) — happy to add that as a follow-up.
