@@ -1351,12 +1351,24 @@ async function speakReel(reelEl, idx) {
   allWordEls.forEach((w) => w.classList.remove("active", "spoken"));
 
   reelEl.classList.add("loading-audio");
-  // ensureAudio never throws — resolves to URL on success, null on failure
-  // (quota / network / etc). Null means: silently use the browser's device voice.
-  const audioUrl = await ensureAudio(idx);
+  // Wait at most ~3.5s for the AI voice. If it's not ready by then, start with
+  // the device voice immediately — the user shouldn't sit in silence while
+  // Gemini takes 5–10s per call. Background generation keeps running, so the
+  // NEXT reel is almost always ready with the AI voice.
+  let audioUrl = null;
+  if (audioCache.has(idx)) {
+    audioUrl = audioCache.get(idx);
+  } else {
+    const fetchPromise = ensureAudio(idx); // kicks off generation if not already
+    audioUrl = await Promise.race([
+      fetchPromise,
+      new Promise((r) => setTimeout(() => r(null), 3500)),
+    ]);
+  }
   reelEl.classList.remove("loading-audio");
   if (currentReelEl !== reelEl) return;
   if (!audioUrl) {
+    // AI voice still loading — start device voice now, AI will be there for the next reel
     return browserSpeakReel(reelEl, idx, chunkEls);
   }
 
@@ -2213,18 +2225,27 @@ async function refreshSavedTitlesCache() {
 //  user almost never waits.
 // =============================================================
 function backgroundFillAllAssets() {
-  // Generate every reel's image+audio in the background, with 2 concurrent workers
+  // Pre-warm every reel's assets in the background. Two INDEPENDENT pools —
+  // image workers don't block audio workers, so audio for reel N starts as
+  // soon as the previous audio finishes, regardless of where image gen is at.
   if (!currentReels.length) return;
   const total = currentReels.length;
-  let next = 0;
-  const worker = async () => {
-    while (next < total) {
-      const my = next++;
+
+  let imgNext = 0, audioNext = 0;
+  const imageWorker = async () => {
+    while (imgNext < total) {
+      const my = imgNext++;
       try { await ensureImage(my); } catch {}
+    }
+  };
+  const audioWorker = async () => {
+    while (audioNext < total) {
+      const my = audioNext++;
       try { await ensureAudio(my); } catch {}
     }
   };
-  worker(); worker(); // 2 concurrent
+  imageWorker(); imageWorker();   // 2 concurrent images
+  audioWorker(); audioWorker();   // 2 concurrent audio  (caps at Gemini's quota)
 }
 
 // =============================================================
