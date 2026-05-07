@@ -21,6 +21,9 @@ function showScreen(name) {
       tab.classList.toggle("active", tab.dataset.target === name);
     });
   }
+  // body class — older WebViews don't support CSS :has(), so we drive the
+  // 'content has bottom nav above it' layout with a class instead.
+  document.body.classList.toggle("nav-visible", showNav);
 }
 
 const fileInput = $("#fileInput");
@@ -700,9 +703,15 @@ async function generate() {
     setTimeout(() => firstHint.classList.remove("show"), 2800);
   } catch (e) {
     clearInterval(loadingInterval);
-    errorText.textContent = e.message || t("err_unknown");
-    showScreen("error");
     setMascotState("sad", 1500);
+    // 401: api() already redirected to login — don't show the error screen on top.
+    const msg = e?.message || "";
+    if (msg === "auth_required" || /HTTP 401|Sign in required/i.test(msg) || /401/.test(msg)) {
+      // Stay on login screen; api() handled it.
+      return;
+    }
+    errorText.textContent = msg || t("err_unknown");
+    showScreen("error");
   }
 }
 
@@ -2266,8 +2275,10 @@ async function generateStreaming(loadingInterval) {
   reelsContainer.innerHTML = "";
   firstReelShown = false;
 
-  const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-  const response = await fetch("/api/upload-stream", { method: "POST", headers, body: fd });
+  const response = await api("/api/upload-stream", { method: "POST", body: fd });
+  if (response.status === 401) {
+    throw new Error("auth_required");
+  }
   if (!response.ok || !response.body) {
     throw new Error(`Stream init failed (HTTP ${response.status})`);
   }

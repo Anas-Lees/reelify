@@ -21,9 +21,28 @@ if (!process.env.GEMINI_API_KEY) {
   process.exit(1);
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString("hex");
-if (!process.env.JWT_SECRET) {
-  console.warn("[auth] JWT_SECRET not set — using a random per-process secret. Users will be logged out on every restart. Set JWT_SECRET in Render env vars to fix.");
+// JWT secret resolution. Priority: env var → file on disk → freshly random.
+// Persisting to a file means tokens survive container sleep/wake on Render's
+// free tier (filesystem persists between sleeps, only resets on redeploy).
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  const SECRET_FILE = path.join(__dirname, ".jwt-secret");
+  try {
+    if (fs.existsSync(SECRET_FILE)) {
+      JWT_SECRET = fs.readFileSync(SECRET_FILE, "utf-8").trim();
+      console.log("[auth] loaded JWT secret from", SECRET_FILE);
+    }
+  } catch {}
+  if (!JWT_SECRET) {
+    JWT_SECRET = crypto.randomBytes(32).toString("hex");
+    try {
+      fs.writeFileSync(SECRET_FILE, JWT_SECRET, { mode: 0o600 });
+      console.log("[auth] created new persistent JWT secret at", SECRET_FILE);
+    } catch (e) {
+      console.warn("[auth] couldn't persist JWT secret to disk:", e.message);
+    }
+  }
+  console.warn("[auth] JWT_SECRET env var not set — set it in Render → service → Environment for the most reliable token continuity across redeploys.");
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });

@@ -142,8 +142,8 @@ body.auth-signup .auth-form .auth-name-field { display: block; }
   gap: 14px;
   padding: 14px 14px;
   margin-bottom: 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(135deg, rgba(255,59,107,0.10), rgba(107,140,255,0.10));
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 18px;
 }
 .avatar-btn {
@@ -197,20 +197,23 @@ body.auth-signup .auth-form .auth-name-field { display: block; }
   width: 100%;
   background: transparent;
   border: none;
-  border-bottom: 1px solid transparent;
+  border-bottom: 1px dashed rgba(255,255,255,0.18);
   color: white;
   font-size: 17px;
   font-weight: 700;
   padding: 4px 0;
   outline: none;
   font-family: inherit;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.profile-name:focus { border-bottom-color: var(--accent); }
-.profile-name::placeholder { color: rgba(255,255,255,0.4); }
+.profile-name:focus {
+  border-bottom-style: solid;
+  border-bottom-color: var(--accent);
+}
+.profile-name::placeholder { color: rgba(255,255,255,0.45); }
 .profile-email {
   font-size: 12px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.65);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1250,11 +1253,13 @@ h1 {
   letter-spacing: 0.02em;
 }
 
-/* Push content up so it doesn't get hidden behind the nav */
-body:has(#bottomNav:not(.hidden)) #upload-screen.active .upload-card {
+/* Push content up so it doesn't slide behind the bottom nav.
+   We drive this with a body.nav-visible class instead of CSS :has() so older
+   WebViews (which the user's S24 may use) compute correctly. */
+body.nav-visible #upload-screen.active .upload-card {
   padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0)));
 }
-body:has(#bottomNav:not(.hidden)) #library-screen.active .library-page {
+body.nav-visible #library-screen.active .library-page {
   padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0)));
 }
 
