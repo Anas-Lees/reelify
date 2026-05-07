@@ -12,6 +12,15 @@ const screens = {
 };
 function showScreen(name) {
   for (const k of Object.keys(screens)) screens[k].classList.toggle("active", k === name);
+  // Bottom nav is only visible on the main app screens (not login/loading/reels/error)
+  const showNav = (name === "upload" || name === "library");
+  const nav = document.getElementById("bottomNav");
+  if (nav) {
+    nav.classList.toggle("hidden", !showNav);
+    nav.querySelectorAll(".bn-tab").forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.target === name);
+    });
+  }
 }
 
 const fileInput = $("#fileInput");
@@ -237,6 +246,7 @@ const I18N = {
     surprise_toast: "🎲 Random preset rolled",
     tap_to_start: "Tap to start",
     // Paste text
+    nav_home: "Home",
     profile_name_ph: "Display name",
     profile_saved: "Profile saved",
     profile_avatar_too_big: "Image must be under 5 MB",
@@ -370,6 +380,7 @@ const I18N = {
     voice_a_suffix: " أ",
     surprise_toast: "🎲 إعدادات عشوائية",
     tap_to_start: "انقر للبدء",
+    nav_home: "الرئيسية",
     profile_name_ph: "الاسم الظاهر",
     profile_saved: "تم حفظ الملف الشخصي",
     profile_avatar_too_big: "يجب أن تكون الصورة أقل من 5 ميجابايت",
@@ -651,7 +662,7 @@ async function generate() {
     if (subjectId) fd.append("subjectId", subjectId);
     if (chapterTitle) fd.append("chapterTitle", chapterTitle);
 
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const res = await api("/api/upload", { method: "POST", body: fd });
     const data = await res.json();
     clearInterval(loadingInterval);
 
@@ -1472,14 +1483,13 @@ function ensureImage(idx) {
   const reel = currentReels[idx];
   if (!reel) return Promise.resolve(null);
 
-  const p = fetch("/api/image", {
+  const p = api("/api/image", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       prompt: reel.background_prompt,
       imageStyle: settings.imageStyle,
       imageStyleCustom: settings.imageStyleCustom || "",
-    }),
+    },
   })
     .then((r) => r.json())
     .then((data) => {
@@ -1510,10 +1520,9 @@ function ensureAudio(idx) {
   const voiceB = (settings.voiceB && settings.voiceB !== "auto") ? settings.voiceB : (reel.voiceB || "Charon");
   const format = settings.format || "solo";
 
-  const p = fetch("/api/tts", {
+  const p = api("/api/tts", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: reel.narration, voice, voiceB, format }),
+    body: { text: reel.narration, voice, voiceB, format },
   })
     .then((r) => r.json())
     .then((data) => {
@@ -2322,6 +2331,26 @@ async function generateStreaming(loadingInterval) {
 }
 
 // =============================================================
+//  Bottom navigation (Instagram-style)
+// =============================================================
+document.querySelectorAll("#bottomNav .bn-tab").forEach((tab) => {
+  tab.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const target = tab.dataset.target;
+    sfx("boop"); haptic(6);
+    if (target === "upload") {
+      showScreen("upload");
+    } else if (target === "library") {
+      // Reuse the existing libraryBtn handler so library renders consistently
+      libraryBtn?.click();
+    } else if (target === "settings") {
+      const m = document.getElementById("settingsModal");
+      if (m) openModal(m);
+    }
+  });
+});
+
+// =============================================================
 //  Auth gate on first load
 // =============================================================
 (async function bootstrap() {
@@ -2545,14 +2574,13 @@ askSubmit?.addEventListener("click", async () => {
   askAnswer.classList.remove("hidden");
   askAnswer.textContent = "…";
   try {
-    const r = await fetch("/api/ask", {
+    const r = await api("/api/ask", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: {
         question: q,
         context: `Title: ${reel.title}\n\nNarration: ${reel.narration}`,
         language: settings.language,
-      }),
+      },
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || t("ask_failed"));
@@ -2841,19 +2869,18 @@ function showToast(msg) {
 // =============================================================
 // (currentChapterId is declared at the top of the file with the other shared state)
 
+// All subject/chapter calls go through api() so the Authorization header is
+// attached (otherwise the server replies 401 "Sign in required").
 async function fetchSubjects() {
   try {
-    const r = await fetch("/api/subjects");
+    const r = await api("/api/subjects");
     const data = await r.json();
     return data.subjects || [];
   } catch { return []; }
 }
 
 async function createSubject({ title, emoji, color }) {
-  const r = await fetch("/api/subjects", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, emoji, color }),
-  });
+  const r = await api("/api/subjects", { method: "POST", body: { title, emoji, color } });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error || "Could not create subject");
   return data.subject;
@@ -2861,32 +2888,31 @@ async function createSubject({ title, emoji, color }) {
 
 async function fetchChapters(subjectId) {
   try {
-    const r = await fetch(`/api/subjects/${encodeURIComponent(subjectId)}/chapters`);
+    const r = await api(`/api/subjects/${encodeURIComponent(subjectId)}/chapters`);
     const data = await r.json();
     return data.chapters || [];
   } catch { return []; }
 }
 
 async function fetchChapter(chapterId) {
-  const r = await fetch(`/api/chapters/${encodeURIComponent(chapterId)}`);
+  const r = await api(`/api/chapters/${encodeURIComponent(chapterId)}`);
   const data = await r.json();
   if (!r.ok) throw new Error(data.error || "Chapter not found");
   return data.chapter;
 }
 
 async function deleteSubject(id) {
-  await fetch(`/api/subjects/${encodeURIComponent(id)}`, { method: "DELETE" });
+  await api(`/api/subjects/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 async function deleteChapter(id) {
-  await fetch(`/api/chapters/${encodeURIComponent(id)}`, { method: "DELETE" });
+  await api(`/api/chapters/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 async function postChapterAsset(chapterId, kind, reelIdx, url) {
   if (!chapterId) return;
   try {
-    await fetch(`/api/chapters/${encodeURIComponent(chapterId)}/asset`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, reelIdx, url }),
+    await api(`/api/chapters/${encodeURIComponent(chapterId)}/asset`, {
+      method: "POST", body: { kind, reelIdx, url },
     });
   } catch {}
 }

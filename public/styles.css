@@ -1200,6 +1200,72 @@ h1 {
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* ----- Instagram-style bottom tab bar ----- */
+.bottom-nav {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  background: rgba(15, 15, 22, 0.92);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 6px 0 max(8px, env(safe-area-inset-bottom, 0));
+}
+.bottom-nav.hidden { display: none; }
+.bn-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 7px 0 4px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.55);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.bn-tab:active { transform: scale(0.94); }
+.bn-tab.active { color: #fff; }
+.bn-tab .bn-icon {
+  width: 26px; height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.bn-tab .bn-icon svg {
+  width: 24px; height: 24px;
+  stroke: currentColor;
+  fill: none;
+}
+.bn-tab.active .bn-icon svg { stroke-width: 2.4; }
+.bn-tab .bn-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Push content up so it doesn't get hidden behind the nav */
+body:has(#bottomNav:not(.hidden)) #upload-screen.active .upload-card {
+  padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0)));
+}
+body:has(#bottomNav:not(.hidden)) #library-screen.active .library-page {
+  padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0)));
+}
+
+/* Light theme bottom-nav */
+body[data-ui-theme="default"][data-app-theme="light"] .bottom-nav {
+  background: rgba(255,255,255,0.92);
+  border-top-color: rgba(0,0,0,0.08);
+}
+body[data-ui-theme="default"][data-app-theme="light"] .bn-tab { color: rgba(0,0,0,0.5); }
+body[data-ui-theme="default"][data-app-theme="light"] .bn-tab.active { color: #15151c; }
+
 /* ----- Top bar inside upload card ----- */
 .top-bar {
   display: flex;

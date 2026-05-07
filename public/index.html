@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260506d" />
+  <link rel="stylesheet" href="styles.css?v=20260506e" />
   <script>
     // Global error visibility — without this, a single JS error silently
     // prevents every event handler from being attached and the UI feels frozen.
@@ -131,19 +131,16 @@
     <section id="upload-screen" class="screen active">
       <div class="upload-card">
         <div class="top-bar">
-          <button id="libraryBtn" class="ghost-btn" type="button">
-            <span class="ge-icon">📚</span>
-            <span class="ge-text" data-i18n="library">Library</span>
+          <span class="top-bar-spacer"></span>
+          <button id="surpriseBtn" class="ghost-btn icon-only" type="button" aria-label="Surprise me">
+            <span class="ge-icon">🎲</span>
           </button>
-          <div class="top-bar-right">
-            <button id="surpriseBtn" class="ghost-btn icon-only" type="button" aria-label="Surprise me">
-              <span class="ge-icon">🎲</span>
-            </button>
-            <button id="settingsBtn" class="ghost-btn icon-only" type="button" aria-label="Settings">
-              <span class="ge-icon">⚙</span>
-            </button>
-          </div>
         </div>
+        <!-- Library + Settings now live in the bottom tab bar (Instagram-style).
+             libraryBtn + settingsBtn IDs are kept hidden so existing JS still
+             attaches handlers; the bottom nav clicks them programmatically. -->
+        <button id="libraryBtn" type="button" hidden></button>
+        <button id="settingsBtn" type="button" hidden></button>
         <div class="logo">
           <span class="dot"></span>
           <span class="dot"></span>
@@ -509,8 +506,30 @@
 
     <!-- Toast for clipboard / share confirmations -->
     <div id="toast" class="toast hidden"></div>
+
+    <!-- Instagram-style bottom tab bar -->
+    <nav id="bottomNav" class="bottom-nav hidden" aria-label="Main">
+      <button class="bn-tab" data-target="upload" aria-label="Home">
+        <span class="bn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </span>
+        <span class="bn-label" data-i18n="nav_home">Home</span>
+      </button>
+      <button class="bn-tab" data-target="library" aria-label="Library">
+        <span class="bn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </span>
+        <span class="bn-label" data-i18n="library">Library</span>
+      </button>
+      <button class="bn-tab" data-target="settings" aria-label="Settings">
+        <span class="bn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </span>
+        <span class="bn-label" data-i18n="settings">Settings</span>
+      </button>
+    </nav>
   </main>
 
-  <script src="app.js?v=20260506d"></script>
+  <script src="app.js?v=20260506e"></script>
 </body>
 </html>
