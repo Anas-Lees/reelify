@@ -1,6 +1,6 @@
 {
   "appId": "com.reelify.app",
-  "appName": "Reelify",
+  "appName": "Edu Shorts",
   "webDir": "public",
   "server": {
     "url": "https://YOUR-APP.onrender.com",

@@ -263,7 +263,7 @@ const I18N = {
     // Checkpoint
     checkpoint_label: "Quick check",
     // Auth
-    auth_title: "Welcome to Reelify",
+    auth_title: "Welcome to Edu Shorts",
     auth_sub: "Sign in to keep your library and saved reels synced across devices.",
     auth_email: "Email",
     auth_password: "Password (6+ chars)",
@@ -395,7 +395,7 @@ const I18N = {
     paste_submit: "أنشئ من النص",
     paste_too_short: "أضف مزيداً من النص أولاً",
     checkpoint_label: "تحقّق سريع",
-    auth_title: "مرحباً بك في Reelify",
+    auth_title: "مرحباً بك في Edu Shorts",
     auth_sub: "سجّل دخول لحفظ مكتبتك وريلزاتك ومزامنتها عبر الأجهزة.",
     auth_email: "البريد الإلكتروني",
     auth_password: "كلمة المرور (٦ أحرف على الأقل)",
@@ -908,7 +908,7 @@ function buildCheckpointReel(checkpoint, idx, total) {
   }
   const meta = document.createElement("div");
   meta.className = "reel-meta";
-  meta.innerHTML = `<span>${escapeHtml(t("checkpoint_label"))}</span><span>Reelify</span>`;
+  meta.innerHTML = `<span>${escapeHtml(t("checkpoint_label"))}</span><span>Edu Shorts</span>`;
   top.append(progress, meta);
 
   const wrap = document.createElement("div");
@@ -996,7 +996,7 @@ function buildQuizReel(idx, total) {
   }
   const meta = document.createElement("div");
   meta.className = "reel-meta";
-  meta.innerHTML = `<span>${escapeHtml(t("quiz_time"))}</span><span>Reelify</span>`;
+  meta.innerHTML = `<span>${escapeHtml(t("quiz_time"))}</span><span>Edu Shorts</span>`;
   top.append(progress, meta);
 
   const quizWrap = document.createElement("div");
@@ -2720,7 +2720,7 @@ shareBtn?.addEventListener("click", async (e) => {
   const idx = Number(currentReelEl.dataset.idx);
   const reel = currentReels[idx];
   if (!reel) return;
-  const text = `${reel.title}\n\n${reel.narration}\n\n— made with Reelify`;
+  const text = `${reel.title}\n\n${reel.narration}\n\n— made with Edu Shorts`;
   try {
     if (navigator.share) {
       await navigator.share({ title: reel.title, text });
