@@ -352,10 +352,29 @@ async function extractContentForAI(filePath, originalName, mimeType) {
     return { kind: "fileRef", uri: f.uri, mimeType: f.mimeType };
   }
 
-  // Office docs (DOCX/PPTX/XLSX/ODT/ODP/ODS) — extract text via officeparser
+  // Office docs (DOCX/PPTX/XLSX/ODT/ODP/ODS).
   if (OFFICE_EXTENSIONS.has(ext)) {
-    // Belt + braces: ensure the path on disk ends with the right extension so
-    // officeparser's any-extension-detection paths work.
+    // OOXML files are just ZIP archives — read them ourselves via JSZip
+    // FIRST. This avoids officeparser's dependency on file extensions and
+    // the various edge cases it has with image-heavy decks etc. We only fall
+    // back to officeparser for the formats JSZip doesn't natively handle (.odt,
+    // .odp, .ods).
+    if (ext === ".docx" || ext === ".pptx" || ext === ".xlsx") {
+      try {
+        const raw = await rawXmlTextExtract(filePath, ext);
+        const trimmed = (raw || "").trim();
+        console.log(`[upload] OOXML JSZip extractor produced ${trimmed.length} chars`);
+        if (trimmed.length >= 30) {
+          return { kind: "text", text: trimmed.slice(0, 200000) };
+        }
+        // Fall through to officeparser — maybe text is in places we didn't scan
+        console.log(`[upload] JSZip extraction was empty, trying officeparser as backup`);
+      } catch (e) {
+        console.warn(`[upload] JSZip extraction failed: ${e.message}`);
+      }
+    }
+
+    // Officeparser path — needs a file with the proper extension on disk.
     let workingPath = filePath;
     if (!workingPath.toLowerCase().endsWith(ext)) {
       const newPath = workingPath + ext;
@@ -364,7 +383,14 @@ async function extractContentForAI(filePath, originalName, mimeType) {
         workingPath = newPath;
         console.log(`[upload] renamed temp file with proper ext → ${path.basename(newPath)}`);
       } catch (e) {
-        console.warn(`[upload] couldn't rename temp file with ext: ${e.message}`);
+        // Try copyFile as fallback if rename fails (cross-device etc.)
+        try {
+          fs.copyFileSync(workingPath, newPath);
+          workingPath = newPath;
+          console.log(`[upload] copied temp file with proper ext → ${path.basename(newPath)}`);
+        } catch (e2) {
+          console.warn(`[upload] couldn't rename or copy temp file with ext: ${e2.message}`);
+        }
       }
     }
 
@@ -379,20 +405,6 @@ async function extractContentForAI(filePath, originalName, mimeType) {
     } catch (e) {
       parseError = e;
       console.error(`[upload] officeparser threw on ${ext}:`, e?.message || e);
-    }
-
-    // Fallback for DOCX: try mammoth-style raw-text extraction by walking the
-    // archive ourselves if officeparser returned empty / threw.
-    if ((!extracted || extracted.trim().length < 30) && (ext === ".docx" || ext === ".pptx" || ext === ".xlsx")) {
-      try {
-        const raw = await rawXmlTextExtract(workingPath, ext);
-        if (raw && raw.trim().length >= 30) {
-          console.log(`[upload] fallback raw-XML extractor produced ${raw.length} chars`);
-          return { kind: "text", text: raw.slice(0, 200000) };
-        }
-      } catch (e) {
-        console.warn(`[upload] raw-XML fallback failed: ${e.message}`);
-      }
     }
 
     if (parseError) {
@@ -1059,7 +1071,19 @@ app.delete("/api/saved/:id", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
+// Build identifier — captured at process startup so /api/version reflects the
+// actually-running deploy, not whatever the latest file says.
+const BUILD_INFO = {
+  bootedAt: new Date().toISOString(),
+  ooxmlExtractor: "jszip-primary",
+};
+try {
+  // Try to capture the deployed Git SHA if Render exposes it
+  BUILD_INFO.commit = process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || "unknown";
+} catch {}
+
+app.get("/api/health", (_req, res) => res.json({ ok: true, ...BUILD_INFO }));
+app.get("/api/version", (_req, res) => res.json(BUILD_INFO));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
