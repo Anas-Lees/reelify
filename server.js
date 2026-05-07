@@ -73,6 +73,31 @@ app.use("/audio", express.static(audioDir, {
   setHeaders(res) { res.setHeader("Cache-Control", "public, max-age=2592000, immutable"); },
 }));
 
+// Auth middleware MUST be registered BEFORE any protected route
+// (Express runs middleware in registration order; if requireAuth-using routes
+//  are added before app.use(authMiddleware), req.user is never set and every
+//  protected request returns 401 — which was the actual cause of "create reel
+//  goes back to login".)
+function authMiddleware(req, _res, next) {
+  const auth = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  req.user = null;
+  if (token) {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET);
+      req.user = { id: payload.id, email: payload.email };
+    } catch (e) {
+      console.warn("[auth] token verify failed:", e.message);
+    }
+  }
+  next();
+}
+function requireAuth(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: "Sign in required" });
+  next();
+}
+app.use(authMiddleware);
+
 const upload = multer({
   dest: uploadsDir,
   limits: { fileSize: 100 * 1024 * 1024 },
@@ -759,24 +784,9 @@ Your answer:`;
   }
 });
 
-// ----- Auth -----
-function authMiddleware(req, _res, next) {
-  const auth = req.headers.authorization || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  req.user = null;
-  if (token) {
-    try {
-      const payload = jwt.verify(token, JWT_SECRET);
-      req.user = { id: payload.id, email: payload.email };
-    } catch {}
-  }
-  next();
-}
-function requireAuth(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: "Sign in required" });
-  next();
-}
-app.use(authMiddleware);
+// ----- Auth helpers -----
+// (authMiddleware itself is registered globally up near express.json — see top
+// of file. It must run BEFORE any route that uses requireAuth.)
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
