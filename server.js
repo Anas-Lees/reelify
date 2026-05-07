@@ -1065,15 +1065,58 @@ app.get("/api/saved", requireAuth, async (req, res) => {
   res.json({ saved: await db.listSavedReels(req.user.id) });
 });
 
+// Helper: turn a local /images/X or /audio/X URL into the bytes on disk.
+// Returns { data: Buffer, mime } or null. Anything that points outside the
+// generated dirs is ignored — we never want to read arbitrary paths.
+function loadLocalAsset(url, kind) {
+  if (!url || typeof url !== "string") return null;
+  const prefix = kind === "audio" ? "/audio/" : "/images/";
+  if (!url.startsWith(prefix)) return null;
+  const filename = url.slice(prefix.length);
+  // strip any query / fragment
+  const clean = filename.split(/[?#]/)[0];
+  // basic safety: no traversal, must be a simple filename
+  if (!clean || clean.includes("/") || clean.includes("\\") || clean.includes("..")) return null;
+  const dir = kind === "audio" ? audioDir : imagesDir;
+  const fp = path.join(dir, clean);
+  if (!fp.startsWith(dir)) return null;
+  if (!fs.existsSync(fp)) return null;
+  try {
+    const data = fs.readFileSync(fp);
+    let mime;
+    if (kind === "audio") {
+      mime = clean.endsWith(".mp3") ? "audio/mpeg" : "audio/wav";
+    } else {
+      mime = clean.endsWith(".jpg") || clean.endsWith(".jpeg") ? "image/jpeg"
+           : clean.endsWith(".webp") ? "image/webp"
+           : "image/png";
+    }
+    return { data, mime };
+  } catch (err) {
+    console.warn("[saved] could not read local asset", url, err?.message);
+    return null;
+  }
+}
+
 app.post("/api/saved", requireAuth, async (req, res) => {
   const { title, narration, backgroundPrompt, voice, accentColor, imageUrl, audioUrl, card } = req.body || {};
   if (!title || !narration) return res.status(400).json({ error: "title + narration required" });
   // Dedupe: if the same reel (title+narration) already saved, return existing.
   const existing = await db.findSavedReel(req.user.id, title, narration);
   if (existing) return res.json({ saved: existing, dedup: true });
+
+  // Read the actual bytes off disk so the reel survives a redeploy that
+  // wipes the ephemeral /generated-images and /generated-audio dirs.
+  const img = loadLocalAsset(imageUrl, "image");
+  const aud = loadLocalAsset(audioUrl, "audio");
+
   const saved = await db.createSavedReel({
     userId: req.user.id,
     title, narration, backgroundPrompt, voice, accentColor, imageUrl, audioUrl, card,
+    imageData: img?.data || null,
+    imageMime: img?.mime || "",
+    audioData: aud?.data || null,
+    audioMime: aud?.mime || "",
   });
   res.json({ saved });
 });
@@ -1083,13 +1126,34 @@ app.delete("/api/saved/:id", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Serve persisted asset bytes for a saved reel. Stable forever — these don't
+// touch the ephemeral disk. Cached aggressively (immutable per saved-reel id).
+// Public by UUID: <img>/<audio> tags can't send Authorization headers, and the
+// saved-reel UUID (128-bit random) is unguessable.
+app.get("/api/saved/:id/image", async (req, res) => {
+  const asset = await db.getSavedReelAsset(req.params.id, "image");
+  if (!asset) return res.status(404).json({ error: "no image" });
+  res.set("Content-Type", asset.mime);
+  res.set("Cache-Control", "public, max-age=31536000, immutable");
+  res.send(asset.data);
+});
+app.get("/api/saved/:id/audio", async (req, res) => {
+  const asset = await db.getSavedReelAsset(req.params.id, "audio");
+  if (!asset) return res.status(404).json({ error: "no audio" });
+  res.set("Content-Type", asset.mime);
+  res.set("Cache-Control", "public, max-age=31536000, immutable");
+  res.send(asset.data);
+});
+
 // Build identifier — captured at process startup so /api/version reflects the
 // actually-running deploy, not whatever the latest file says.
 const BUILD_INFO = {
   bootedAt: new Date().toISOString(),
   ooxmlExtractor: "jszip-primary",
   persistence: "postgres",
-  savedAssetSelfHeal: "20260507d",
+  savedAssetSelfHeal: "20260507e",
+  savedAssetsPersisted: true,
+  reelLoadingGate: true,
 };
 try {
   // Try to capture the deployed Git SHA if Render exposes it

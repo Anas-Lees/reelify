@@ -2825,6 +2825,73 @@ body[data-caption-size="large"]  .caption-chunk { font-size: 42px; }
   letter-spacing: 0.02em;
 }
 .reel.loading-audio .audio-loading { display: flex; }
+
+/* ----- Whole-reel loading gate -----
+   Shown until BOTH the image is loaded AND the audio is ready (or we've
+   given up on either). Hides the captions+card behind a frosted overlay so
+   the reel only "becomes visible" when it's actually ready to play. */
+.reel-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgba(8, 6, 18, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+.reel.ready .reel-gate {
+  opacity: 0;
+  pointer-events: none;
+}
+.reel-gate-spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent-color, #ff3b6b);
+  animation: reel-gate-spin 0.9s linear infinite;
+}
+@keyframes reel-gate-spin {
+  to { transform: rotate(360deg); }
+}
+.reel-gate-status {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.reel-gate-status .gs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.reel-gate-status .gs::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+.reel-gate-status .gs.ok::before {
+  background: #44d77f;
+  box-shadow: 0 0 10px rgba(68, 215, 127, 0.6);
+}
+.reel-gate-label {
+  opacity: 0.85;
+}
 .al-bars {
   display: inline-flex;
   gap: 3px;

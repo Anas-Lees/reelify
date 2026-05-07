@@ -859,7 +859,21 @@ function buildReel(reel, idx, total) {
   audioLoading.className = "audio-loading";
   audioLoading.innerHTML = `<div class="al-bars"><span></span><span></span><span></span></div><span class="al-text">Loading voiceover…</span>`;
 
-  reelEl.append(bg, overlay, top, content, playIcon, audioLoading);
+  // Whole-reel "gate" — covers everything until both image and audio are
+  // ready. Removed (via .ready class on reelEl) by activateReel once both
+  // assets resolve, or after a hard timeout.
+  const gate = document.createElement("div");
+  gate.className = "reel-gate";
+  gate.innerHTML = `
+    <div class="reel-gate-spinner"></div>
+    <div class="reel-gate-label">Preparing reel…</div>
+    <div class="reel-gate-status">
+      <span class="gs gs-img">image</span>
+      <span class="gs gs-aud">voice</span>
+    </div>
+  `;
+
+  reelEl.append(bg, overlay, top, content, playIcon, audioLoading, gate);
 
   attachTapHandlers(reelEl);
 
@@ -1204,6 +1218,48 @@ async function activateReel(reelEl, idx) {
 
   // Used downstream where we still need the slot idx for progress bars
   const slotIdx = idx;
+
+  // ----- Loading gate: hold the reel content behind a frosted overlay until
+  // both the image is painted and the audio URL is ready (or we time out).
+  reelEl.classList.remove("ready");
+  const imgDot = reelEl.querySelector(".gs-img");
+  const audDot = reelEl.querySelector(".gs-aud");
+  if (imgDot) imgDot.classList.remove("ok");
+  if (audDot) audDot.classList.remove("ok");
+  let imgReady = false;
+  let audReady = false;
+  let speakStarted = false;
+  function checkReady() {
+    if (currentReelEl !== reelEl) return;
+    if (imgReady && audReady) {
+      reelEl.classList.add("ready");
+      // Kick off speakReel only after the gate drops, so the karaoke
+      // captions and audio start together with no awkward silence-then-image.
+      if (!speakStarted) {
+        speakStarted = true;
+        speakReel(reelEl, reelIdx);
+      }
+    }
+  }
+  function markImgReady() {
+    if (imgReady) return;
+    imgReady = true;
+    if (imgDot) imgDot.classList.add("ok");
+    checkReady();
+  }
+  function markAudReady() {
+    if (audReady) return;
+    audReady = true;
+    if (audDot) audDot.classList.add("ok");
+    checkReady();
+  }
+  // Hard fallback — never leave the user staring at a spinner forever.
+  // After 12s, drop the gate even if something is still in flight.
+  setTimeout(() => {
+    if (currentReelEl !== reelEl) return;
+    markImgReady(); markAudReady();
+  }, 12000);
+
   ensureImage(reelIdx).then((url) => {
     if (!url || currentReelEl !== reelEl) return;
     const bg = reelEl.querySelector(".reel-bg");
@@ -1221,6 +1277,7 @@ async function activateReel(reelEl, idx) {
       bg.classList.remove("img-loaded");
       void bg.offsetWidth;
       bg.classList.add("img-loaded");
+      markImgReady();
     };
     pre.onerror = () => {
       console.warn("image preload failed", url);
@@ -1231,11 +1288,12 @@ async function activateReel(reelEl, idx) {
       imageInflight.delete(reelIdx);
       if (reelEl.dataset.imgRetried === "1") {
         showToast("Image failed to load");
+        markImgReady(); // give up — drop the gate so audio can still play
         return;
       }
       reelEl.dataset.imgRetried = "1";
       ensureImage(reelIdx).then((freshUrl) => {
-        if (!freshUrl || currentReelEl !== reelEl) return;
+        if (!freshUrl || currentReelEl !== reelEl) { markImgReady(); return; }
         const bg2 = reelEl.querySelector(".reel-bg");
         const pre2 = new Image();
         pre2.onload = () => {
@@ -1249,13 +1307,19 @@ async function activateReel(reelEl, idx) {
           bg2.classList.remove("img-loaded");
           void bg2.offsetWidth;
           bg2.classList.add("img-loaded");
+          markImgReady();
         };
-        pre2.onerror = () => showToast("Image failed to load");
+        pre2.onerror = () => { showToast("Image failed to load"); markImgReady(); };
         pre2.src = freshUrl;
       });
     };
     pre.src = url;
-  });
+  }).catch(() => markImgReady()); // image gen failed entirely — don't block the gate
+
+  // Audio gate: resolve as soon as ensureAudio finishes (URL or null). null
+  // means we'll fall back to the device voice; either way, the reel is "ready"
+  // to start playing the moment ensureAudio settles.
+  ensureAudio(reelIdx).finally(() => markAudReady());
 
   // Aggressive prefetch: current + next 3 + previous 1 (image AND audio).
   // Use the reel internal index so we hit the right slots in currentReels.
@@ -1263,8 +1327,6 @@ async function activateReel(reelEl, idx) {
     if (i < currentReels.length) { ensureImage(i); ensureAudio(i); }
   }
   if (reelIdx - 1 >= 0) { ensureImage(reelIdx - 1); ensureAudio(reelIdx - 1); }
-
-  speakReel(reelEl, reelIdx);
 }
 
 // ----- Tap handlers (single tap = zone action, double = heart) -----
