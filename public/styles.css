@@ -135,6 +135,90 @@ body.auth-signup .auth-form .auth-name-field { display: block; }
   margin-bottom: 16px;
 }
 .library-page-title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+/* ----- Profile card at the top of the Library page ----- */
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 14px;
+  margin-bottom: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+}
+.avatar-btn {
+  position: relative;
+  width: 64px; height: 64px;
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  outline: none;
+}
+.avatar-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background-size: cover;
+  background-position: center;
+  color: white;
+  font-size: 28px;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 2px solid rgba(255,255,255,0.16);
+}
+.avatar-edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(20, 20, 28, 0.92);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: white;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.profile-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-name {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: white;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 4px 0;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+.profile-name:focus { border-bottom-color: var(--accent); }
+.profile-name::placeholder { color: rgba(255,255,255,0.4); }
+.profile-email {
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[dir="rtl"] .profile-card { flex-direction: row-reverse; }
+html[dir="rtl"] .profile-name, html[dir="rtl"] .profile-email { text-align: right; }
+html[dir="rtl"] .avatar-edit { right: auto; left: -2px; }
+
 .library-tabs {
   display: flex;
   gap: 4px;

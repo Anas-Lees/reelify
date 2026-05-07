@@ -136,7 +136,7 @@ const I18N = {
     library: "Library", settings: "Settings", create: "Create", cancel: "Cancel", remove: "Remove",
     // Upload screen hero
     hero_title: "Drop a file. Get reels.",
-    hero_sub: "PDF, Word, PowerPoint, images, text — Gemini reads it, packs it into bite-size scrolling reels with AI visuals, voiceover and synced captions.",
+    hero_sub: "PDF, Word, PowerPoint, images, text — the AI reads it and packs it into bite-size scrolling reels with AI visuals, voiceover and synced captions.",
     drop_text: "Tap or drop a file here",
     drop_size: "Up to 100 MB",
     generate: "Generate Reels",
@@ -205,7 +205,7 @@ const I18N = {
     ask_no_answer: "(no answer)", ask_failed: "Sorry — couldn't get an answer.",
     // Loading
     loading_reading: "Reading your file…",
-    loading_reading_sub: "Gemini is finding the gold inside.",
+    loading_reading_sub: "The AI is finding the gold inside.",
     loading_grouping: "Grouping the ideas…",
     loading_grouping_sub: "Packing related bits into the same reel.",
     loading_writing: "Writing the scripts…",
@@ -237,9 +237,13 @@ const I18N = {
     surprise_toast: "🎲 Random preset rolled",
     tap_to_start: "Tap to start",
     // Paste text
+    profile_name_ph: "Display name",
+    profile_saved: "Profile saved",
+    profile_avatar_too_big: "Image must be under 5 MB",
+    profile_avatar_only_images: "Pick an image file",
     paste_text: "Or paste text instead",
     paste_text_title: "Paste your text",
-    paste_text_sub: "Notes, an article, anything. Gemini cleans it up and turns it into reels.",
+    paste_text_sub: "Notes, an article, anything. The AI cleans it up and turns it into reels.",
     paste_placeholder: "Paste anything here — notes, an article, even rough thoughts. The AI fixes typos and structures it.",
     paste_submit: "Generate from text",
     paste_too_short: "Add a bit more text first",
@@ -266,7 +270,7 @@ const I18N = {
     library: "المكتبة", settings: "الإعدادات", create: "إنشاء", cancel: "إلغاء", remove: "إزالة",
 
     hero_title: "أَفلِت ملفًا. واستلم ريلز.",
-    hero_sub: "PDF أو Word أو PowerPoint أو صور أو نصوص — يقرأها Gemini ويحوّلها إلى ريلز عمودية بصور ذكية وتعليق صوتي ونصوص متزامنة.",
+    hero_sub: "PDF أو Word أو PowerPoint أو صور أو نصوص — يقرأها الذكاء الاصطناعي ويحوّلها إلى ريلز عمودية بصور ذكية وتعليق صوتي ونصوص متزامنة.",
     drop_text: "انقر أو أَفلِت ملفًا هنا",
     drop_size: "حتى 100 ميجابايت",
     generate: "إنشاء الريلز",
@@ -335,7 +339,7 @@ const I18N = {
     ask_no_answer: "(لا يوجد جواب)", ask_failed: "آسف — لم أحصل على جواب.",
 
     loading_reading: "أقرأ ملفك…",
-    loading_reading_sub: "Gemini يبحث عن الذهب بالداخل.",
+    loading_reading_sub: "الذكاء الاصطناعي يبحث عن الذهب بالداخل.",
     loading_grouping: "أجمع الأفكار…",
     loading_grouping_sub: "أحزم القطع المرتبطة في ريل واحد.",
     loading_writing: "أكتب النصوص…",
@@ -366,6 +370,10 @@ const I18N = {
     voice_a_suffix: " أ",
     surprise_toast: "🎲 إعدادات عشوائية",
     tap_to_start: "انقر للبدء",
+    profile_name_ph: "الاسم الظاهر",
+    profile_saved: "تم حفظ الملف الشخصي",
+    profile_avatar_too_big: "يجب أن تكون الصورة أقل من 5 ميجابايت",
+    profile_avatar_only_images: "اختر ملف صورة",
     paste_text: "أو ألصق نصاً بدلاً من ذلك",
     paste_text_title: "ألصق نصك",
     paste_text_sub: "ملاحظات، مقال، أي شيء. الذكاء يصححه ويحوّله إلى ريلز.",
@@ -714,7 +722,9 @@ function renderAll() {
 
   sequence.forEach((slot, slotIdx) => {
     if (slot.kind === "reel") {
-      reelsContainer.appendChild(buildReel(currentReels[slot.reelIdx], slotIdx, total));
+      const el = buildReel(currentReels[slot.reelIdx], slotIdx, total);
+      el.dataset.reelIdx = String(slot.reelIdx); // slot != internal when checkpoints are present
+      reelsContainer.appendChild(el);
     } else if (slot.kind === "checkpoint") {
       reelsContainer.appendChild(buildCheckpointReel(currentReels[slot.reelIdx].checkpoint, slotIdx, total));
     } else if (slot.kind === "quiz") {
@@ -1083,7 +1093,7 @@ async function activateReel(reelEl, idx) {
     refreshStatsBadge();
   }
 
-  // Update progress bars
+  // Update progress bars (slot-based)
   document.querySelectorAll(".reel").forEach((el) => {
     el.querySelectorAll(".seg").forEach((seg, segIdx) => {
       seg.classList.toggle("done", segIdx < idx);
@@ -1103,7 +1113,14 @@ async function activateReel(reelEl, idx) {
     return;
   }
 
-  ensureImage(idx).then((url) => {
+  // For asset prefetch + speakReel we need the REEL INTERNAL index (the
+  // position inside currentReels), which differs from the slot index when
+  // checkpoints are interleaved.
+  const reelIdx = Number(reelEl.dataset.reelIdx ?? idx);
+
+  // Used downstream where we still need the slot idx for progress bars
+  const slotIdx = idx;
+  ensureImage(reelIdx).then((url) => {
     if (!url || currentReelEl !== reelEl) return;
     const bg = reelEl.querySelector(".reel-bg");
     const pre = new Image();
@@ -1129,13 +1146,13 @@ async function activateReel(reelEl, idx) {
   });
 
   // Aggressive prefetch: current + next 3 + previous 1 (image AND audio).
-  // Combined with backgroundFillAllAssets() this means users almost never wait.
-  for (let i = idx + 1; i <= idx + 3; i++) {
+  // Use the reel internal index so we hit the right slots in currentReels.
+  for (let i = reelIdx + 1; i <= reelIdx + 3; i++) {
     if (i < currentReels.length) { ensureImage(i); ensureAudio(i); }
   }
-  if (idx - 1 >= 0) { ensureImage(idx - 1); ensureAudio(idx - 1); }
+  if (reelIdx - 1 >= 0) { ensureImage(reelIdx - 1); ensureAudio(reelIdx - 1); }
 
-  speakReel(reelEl, idx);
+  speakReel(reelEl, reelIdx);
 }
 
 // ----- Tap handlers (single tap = zone action, double = heart) -----
@@ -1791,6 +1808,91 @@ const nsCancel2 = document.getElementById("nsCancel2");
 
 libraryBack?.addEventListener("click", () => showScreen("upload"));
 
+// =============================================================
+//  Profile (display name + avatar)
+// =============================================================
+const profileCardEl = document.getElementById("profileCard");
+const avatarBtn = document.getElementById("avatarBtn");
+const avatarImg = document.getElementById("avatarImg");
+const avatarInput = document.getElementById("avatarInput");
+const profileNameInput = document.getElementById("profileName");
+const profileEmailEl = document.getElementById("profileEmail");
+const profileSaveBtn = document.getElementById("profileSaveBtn");
+
+function avatarInitial() {
+  const name = (authUser?.displayName || authUser?.email || "?").trim();
+  return name.charAt(0).toUpperCase();
+}
+function renderProfile() {
+  if (!authUser) return;
+  if (profileEmailEl) profileEmailEl.textContent = authUser.email || "";
+  if (profileNameInput) profileNameInput.value = authUser.displayName || "";
+  if (avatarImg) {
+    avatarImg.style.backgroundImage = "";
+    avatarImg.textContent = "";
+    if (authUser.avatarUrl) {
+      avatarImg.style.backgroundImage = `url("${authUser.avatarUrl}")`;
+    } else {
+      avatarImg.textContent = avatarInitial();
+    }
+  }
+  if (profileSaveBtn) profileSaveBtn.hidden = true;
+}
+
+avatarBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  avatarInput?.click();
+});
+avatarInput?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { showToast(t("profile_avatar_only_images")); return; }
+  if (file.size > 5 * 1024 * 1024) { showToast(t("profile_avatar_too_big")); return; }
+  const fd = new FormData();
+  fd.append("avatar", file);
+  try {
+    const res = await api("/api/auth/avatar", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+    authUser = data.user;
+    persistAuth();
+    renderProfile();
+    showToast(t("profile_saved"));
+    sfx("ding"); haptic(10);
+  } catch (err) {
+    showToast(err.message || "Avatar upload failed");
+  } finally {
+    avatarInput.value = ""; // allow same file picked again
+  }
+});
+
+profileNameInput?.addEventListener("input", () => {
+  if (!profileSaveBtn) return;
+  const cur = (authUser?.displayName || "");
+  profileSaveBtn.hidden = profileNameInput.value.trim() === cur.trim();
+});
+profileNameInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); profileSaveBtn?.click(); }
+});
+profileSaveBtn?.addEventListener("click", async () => {
+  const newName = profileNameInput.value.trim();
+  try {
+    profileSaveBtn.disabled = true;
+    const res = await api("/api/auth/profile", { method: "PATCH", body: { displayName: newName } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Save failed");
+    authUser = data.user;
+    persistAuth();
+    renderProfile();
+    showToast(t("profile_saved"));
+    sfx("ding"); haptic(10);
+  } catch (err) {
+    showToast(err.message || "Save failed");
+  } finally {
+    profileSaveBtn.disabled = false;
+  }
+});
+
 document.querySelectorAll(".lib-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     const target = tab.dataset.tab;
@@ -2077,6 +2179,7 @@ function appendStreamingReel(reel) {
   currentReels.push(reel);
   const slotIdx = reelsContainer.children.length;
   const reelEl = buildReel(reel, slotIdx, slotIdx + 1);
+  reelEl.dataset.reelIdx = String(reelInternalIdx);
   reelsContainer.appendChild(reelEl);
   observeNewReel(reelEl);
   updateProgressSegmentsAndCounts();
@@ -2487,6 +2590,8 @@ savedBtn?.addEventListener("click", () => {
   // Take the user to the full Library page on the Saved tab (server-backed)
   showScreen("library");
   document.querySelector('.lib-tab[data-tab="saved"]')?.click();
+  renderProfile();
+  refreshSavedListView();
 });
 
 function renderSavedGallery() {
@@ -2539,8 +2644,10 @@ function renderSavedGallery() {
 saveBtn.onclick = async (e) => {
   e.stopPropagation();
   if (!currentReelEl || currentReelEl.dataset.kind !== "narration") return;
-  const idx = Number(currentReelEl.dataset.idx);
-  const reel = currentReels[idx];
+  // Use the REEL internal index, not the slot index, so checkpoints between
+  // reels don't make us save the wrong reel.
+  const reelIdx = Number(currentReelEl.dataset.reelIdx ?? currentReelEl.dataset.idx);
+  const reel = currentReels[reelIdx];
   if (!reel) return;
   try {
     if (saveBtn.classList.contains("saved")) {
@@ -2559,8 +2666,8 @@ saveBtn.onclick = async (e) => {
         backgroundPrompt: reel.background_prompt,
         voice: reel.voice,
         accentColor: reel.accent_color,
-        imageUrl: imageCache.get(idx) || "",
-        audioUrl: audioCache.get(idx) || "",
+        imageUrl: imageCache.get(reelIdx) || "",
+        audioUrl: audioCache.get(reelIdx) || "",
         card: reel.card || null,
       });
       saveBtn.classList.add("saved");
@@ -2855,6 +2962,7 @@ libraryBtn?.addEventListener("click", () => {
   document.querySelector('.lib-tab[data-tab="subjects"]')?.click();
   renderLibraryPage();
   refreshSavedTitlesCache();
+  renderProfile();
 });
 
 newSubjectBtn?.addEventListener("click", () => {
@@ -3035,16 +3143,20 @@ function refreshActionsForReel(reelEl) {
   actionsEl.classList.toggle("hidden", hideActions);
   if (hideActions) return;
 
-  const idx = Number(reelEl.dataset.idx);
-  const reel = currentReels[idx];
+  // Slot index for like-count keying; reel internal index for currentReels lookup.
+  const slotIdx = Number(reelEl.dataset.idx);
+  const reelIdx = Number(reelEl.dataset.reelIdx ?? slotIdx);
+  const reel = currentReels[reelIdx];
 
-  // Like count
-  likeBtn.querySelector(".ra-count").textContent = formatCount(reelLikes[idx] || 0);
-  likeBtn.classList.toggle("liked", (reelLikes[idx] || 0) > 0);
+  // Like count (keyed by slot — likes belong to the rendered slot)
+  likeBtn.querySelector(".ra-count").textContent = formatCount(reelLikes[slotIdx] || 0);
+  likeBtn.classList.toggle("liked", (reelLikes[slotIdx] || 0) > 0);
 
   // Saved state — uses the server-side cache populated by refreshSavedTitlesCache()
   if (reel) {
     const key = `${reel.title}::${reel.narration}`;
     saveBtn.classList.toggle("saved", typeof savedTitlesCache !== "undefined" && savedTitlesCache.has(key));
+  } else {
+    saveBtn.classList.remove("saved");
   }
 }

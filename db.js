@@ -61,9 +61,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_reels(userId);
 `);
 
-// Idempotent migration: add userId to subjects if not present
+// Idempotent migrations
 try { db.exec(`ALTER TABLE subjects ADD COLUMN userId TEXT`); } catch {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_subjects_user ON subjects(userId)`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN avatarUrl TEXT DEFAULT ''`); } catch {}
 
 // ----- Users -----
 export function getUserByEmail(email) {
@@ -77,6 +78,18 @@ export function createUser({ email, passwordHash, displayName }) {
   const now = Date.now();
   db.prepare(`INSERT INTO users (id, email, passwordHash, displayName, createdAt) VALUES (?, ?, ?, ?, ?)`)
     .run(id, String(email).toLowerCase(), passwordHash, String(displayName || "").slice(0, 80), now);
+  return getUser(id);
+}
+
+export function updateUserProfile(id, { displayName, avatarUrl }) {
+  const cur = getUser(id);
+  if (!cur) return null;
+  const next = {
+    displayName: displayName !== undefined ? String(displayName).slice(0, 80) : cur.displayName,
+    avatarUrl:   avatarUrl   !== undefined ? String(avatarUrl).slice(0, 500)  : (cur.avatarUrl || ""),
+  };
+  db.prepare(`UPDATE users SET displayName = ?, avatarUrl = ? WHERE id = ?`)
+    .run(next.displayName, next.avatarUrl, id);
   return getUser(id);
 }
 

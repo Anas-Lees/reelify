@@ -1,6 +1,6 @@
 # Reelify — Files → Scrolling Reels
 
-Drop in a PDF, Word doc, slide deck, image or text file. Gemini reads it, packs related ideas into reels, generates a cinematic background image for each one, and the browser plays it back as an Instagram-style vertical scroller with TTS voiceover and karaoke-style word highlighting.
+Drop in a PDF, Word doc, slide deck, image or text file. The AI reads it, packs related ideas into reels, generates a cinematic background image for each one, and the browser plays it back as an Instagram-style vertical scroller with TTS voiceover and karaoke-style word highlighting.
 
 ## Quick start
 
@@ -9,7 +9,7 @@ Drop in a PDF, Word doc, slide deck, image or text file. Gemini reads it, packs 
    npm install
    ```
 
-2. **Add your Gemini API key**
+2. **Add your AI API key** *(from Google AI Studio — the underlying provider)*
 
    Get one from https://aistudio.google.com/apikey, then:
    ```bash
@@ -19,6 +19,7 @@ Drop in a PDF, Word doc, slide deck, image or text file. Gemini reads it, packs 
    ```
    GEMINI_API_KEY=...
    ```
+   *(The variable is still called `GEMINI_API_KEY` because that's what the underlying SDK reads.)*
 
 3. **Run**
    ```bash
@@ -30,18 +31,18 @@ Drop in a PDF, Word doc, slide deck, image or text file. Gemini reads it, packs 
 
 | Stage | What happens | Where |
 |---|---|---|
-| 1. Upload | PDF / image goes straight to Gemini File API. Office docs are text-extracted with `officeparser` first. | `server.js` → `/api/upload` |
-| 2. Reel scripting | `gemini-2.5-flash` returns structured JSON: title, narration, background prompt, accent color per reel. | `REEL_PROMPT` |
-| 3. Image gen | `gemini-2.5-flash-image` generates a vertical cinematic background per reel — lazy, on demand as you scroll. | `/api/image` |
-| 4. Voice + karaoke | Browser `SpeechSynthesis` reads the narration; `onboundary` events highlight the current word. | `public/app.js` |
+| 1. Upload | PDF / image goes straight to the AI File API. Office docs are text-extracted with `officeparser` first. | `server.js` → `/api/upload` |
+| 2. Reel scripting | The AI text model returns structured JSON: title, narration, background prompt, accent color per reel. | `REEL_PROMPT` |
+| 3. Image gen | The AI image model generates a vertical cinematic background per reel — lazy, on demand as you scroll. | `/api/image` |
+| 4. Voice + karaoke | The AI voice model reads the narration; the client highlights words as the audio plays. | `public/app.js` |
 
 ## Supported file types
 
-- **Native (sent to Gemini as-is):** PDF, all common image formats
+- **Native (sent to the AI as-is):** PDF, all common image formats
 - **Text-extracted then sent:** DOCX, PPTX, XLSX, ODT, ODP, ODS, TXT, MD, CSV, JSON, HTML, XML, RTF
 
 ## Notes
 
-- TTS quality depends on the browser's installed voices. Chrome on Windows/macOS gets good Google voices; Edge gets Neural voices.
 - All generated images are stored locally under `generated-images/`.
 - Uploaded files are deleted after analysis.
+- For phone install + cloud deploy: see `BUILD.md`.

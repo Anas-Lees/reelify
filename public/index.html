@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260506c" />
+  <link rel="stylesheet" href="styles.css?v=20260506d" />
   <script>
     // Global error visibility — without this, a single JS error silently
     // prevents every event handler from being attached and the UI feels frozen.
@@ -76,6 +76,22 @@
           <h2 class="library-page-title" data-i18n="library">Library</h2>
           <button id="logoutBtn" class="ghost-btn icon-only" aria-label="Sign out" title="Sign out">
             <span class="ge-icon">⏻</span>
+          </button>
+        </div>
+
+        <div id="profileCard" class="profile-card">
+          <button id="avatarBtn" class="avatar-btn" type="button" aria-label="Change avatar">
+            <span class="avatar-img" id="avatarImg"></span>
+            <span class="avatar-edit">📷</span>
+            <input type="file" id="avatarInput" accept="image/*" hidden />
+          </button>
+          <div class="profile-info">
+            <input id="profileName" class="profile-name" type="text" maxlength="40"
+              data-i18n-placeholder="profile_name_ph" placeholder="Display name" />
+            <div class="profile-email" id="profileEmail"></div>
+          </div>
+          <button id="profileSaveBtn" class="ghost-btn icon-only" aria-label="Save profile" hidden>
+            <span class="ge-icon">✓</span>
           </button>
         </div>
 
@@ -153,7 +169,7 @@
           </svg>
         </div>
         <h1 data-i18n="hero_title">Drop a file. Get reels.</h1>
-        <p class="sub" data-i18n="hero_sub">PDF, Word, PowerPoint, images, text — Gemini reads it, packs it into bite-size scrolling reels with AI visuals, voiceover and synced captions.</p>
+        <p class="sub" data-i18n="hero_sub">PDF, Word, PowerPoint, images, text — the AI reads it and packs it into bite-size scrolling reels with AI visuals, voiceover and synced captions.</p>
 
         <label class="drop-zone" id="dropZone">
           <input type="file" id="fileInput" hidden
@@ -331,7 +347,7 @@
           <span></span><span></span><span></span><span></span><span></span>
         </div>
         <h2 id="loadingTitle" data-i18n="loading_reading">Reading your file…</h2>
-        <p id="loadingSub" class="sub" data-i18n="loading_reading_sub">Gemini is finding the gold inside.</p>
+        <p id="loadingSub" class="sub" data-i18n="loading_reading_sub">The AI is finding the gold inside.</p>
       </div>
     </section>
 
@@ -400,7 +416,7 @@
       <div class="modal-card">
         <button class="modal-close" data-close aria-label="Close">×</button>
         <h3 class="modal-title" data-i18n="paste_text_title">Paste your text</h3>
-        <p class="modal-sub" data-i18n="paste_text_sub">Notes, an article, anything. Gemini cleans it up and turns it into reels.</p>
+        <p class="modal-sub" data-i18n="paste_text_sub">Notes, an article, anything. The AI cleans it up and turns it into reels.</p>
         <textarea id="pasteInput" rows="9" data-i18n-placeholder="paste_placeholder" placeholder="Paste anything here…"></textarea>
         <button id="pasteSubmit" class="primary" data-i18n="paste_submit">Generate from text</button>
       </div>
@@ -495,6 +511,6 @@
     <div id="toast" class="toast hidden"></div>
   </main>
 
-  <script src="app.js?v=20260506c"></script>
+  <script src="app.js?v=20260506d"></script>
 </body>
 </html>

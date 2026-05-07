@@ -1,7 +1,7 @@
 {
   "name": "webappgrad",
   "version": "1.0.0",
-  "description": "Gemini-powered reel generator from any document",
+  "description": "AI-powered reel generator from any document",
   "type": "module",
   "scripts": {
     "start": "node server.js",

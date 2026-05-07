@@ -214,12 +214,12 @@ function isNativelySupported(mime) {
   return NATIVE_GEMINI_MIME_PREFIXES.some((p) => mime.startsWith(p));
 }
 
-async function extractContentForGemini(filePath, originalName, mimeType) {
+async function extractContentForAI(filePath, originalName, mimeType) {
   const ext = path.extname(originalName).toLowerCase();
   const size = fs.statSync(filePath).size;
   console.log(`[upload] "${originalName}" mime=${mimeType} ext=${ext} size=${size}`);
 
-  // Native Gemini File API path (PDF, images)
+  // Native AI File API path (PDF, images)
   if (isNativelySupported(mimeType)) {
     const uploaded = await ai.files.upload({
       file: filePath,
@@ -230,8 +230,8 @@ async function extractContentForGemini(filePath, originalName, mimeType) {
       await new Promise((r) => setTimeout(r, 800));
       f = await ai.files.get({ name: uploaded.name });
     }
-    if (f.state === "FAILED") throw new Error("Gemini failed to process file");
-    console.log(`[upload] using Gemini File API ref ${f.uri}`);
+    if (f.state === "FAILED") throw new Error("AI failed to process file");
+    console.log(`[upload] using AI File API ref ${f.uri}`);
     return { kind: "fileRef", uri: f.uri, mimeType: f.mimeType };
   }
 
@@ -287,7 +287,7 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    const content = await extractContentForGemini(filePath, req.file.originalname, req.file.mimetype);
+    const content = await extractContentForAI(filePath, req.file.originalname, req.file.mimetype);
 
     const settings = {
       vibe: req.body.vibe,
@@ -322,12 +322,12 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
       parsed = JSON.parse(raw);
     } catch {
       const m = raw.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error("Gemini did not return JSON");
+      if (!m) throw new Error("The AI did not return JSON");
       parsed = JSON.parse(m[0]);
     }
 
     if (!parsed.reels || !Array.isArray(parsed.reels) || parsed.reels.length === 0) {
-      throw new Error("Gemini returned no reels");
+      throw new Error("The AI returned no reels");
     }
     if (!Array.isArray(parsed.quiz)) parsed.quiz = [];
 
@@ -365,7 +365,7 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
 });
 
 // ----- Streaming upload (Server-Sent Events) -----
-// Walks Gemini's streaming JSON output, extracts complete reel objects from
+// Walks the AI's streaming JSON output, extracts complete reel objects from
 // the partial response as soon as their closing `}` arrives, and emits each
 // over SSE. The client renders reels as they appear instead of waiting for
 // the whole response. Final quiz + chapter persistence happens at the end.
@@ -439,7 +439,7 @@ app.post("/api/upload-stream", requireAuth, upload.single("file"), async (req, r
       format: req.body.format,
     };
 
-    const content = await extractContentForGemini(filePath, req.file.originalname, req.file.mimetype);
+    const content = await extractContentForAI(filePath, req.file.originalname, req.file.mimetype);
     const userParts = [{ text: buildReelPrompt(settings) }];
     if (content.kind === "fileRef") {
       userParts.push({ fileData: { fileUri: content.uri, mimeType: content.mimeType } });
@@ -448,7 +448,7 @@ app.post("/api/upload-stream", requireAuth, upload.single("file"), async (req, r
     }
 
     send("start", { ts: Date.now() });
-    // Heartbeat so phone WebView keeps the connection alive while Gemini thinks
+    // Heartbeat so phone WebView keeps the connection alive while the AI thinks
     const heartbeat = setInterval(() => { try { res.write(": ping\n\n"); } catch {} }, 15000);
 
     const stream = await ai.models.generateContentStream({
@@ -798,7 +798,45 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/auth/me", requireAuth, (req, res) => {
   const user = db.getUser(req.user.id);
   if (!user) return res.status(404).json({ error: "User not found" });
-  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
+  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, avatarUrl: user.avatarUrl || "" } });
+});
+
+// Update profile (display name only here; avatar uploaded separately)
+app.patch("/api/auth/profile", requireAuth, (req, res) => {
+  const { displayName } = req.body || {};
+  if (displayName !== undefined && (typeof displayName !== "string" || displayName.length > 80)) {
+    return res.status(400).json({ error: "Display name must be a string under 80 chars" });
+  }
+  const user = db.updateUserProfile(req.user.id, { displayName });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, avatarUrl: user.avatarUrl || "" } });
+});
+
+// Upload avatar — accepts an image, saves to /generated-images/, stores URL on user
+const avatarsDir = path.join(__dirname, "generated-images"); // reuse existing static-served dir
+app.post("/api/auth/avatar", requireAuth, upload.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Missing avatar file" });
+    if (!req.file.mimetype || !req.file.mimetype.startsWith("image/")) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: "File must be an image" });
+    }
+    if (req.file.size > 5 * 1024 * 1024) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: "Avatar must be under 5 MB" });
+    }
+    const ext = (req.file.mimetype.split("/")[1] || "png").replace(/[^a-z0-9]/gi, "").slice(0, 5) || "png";
+    const filename = `avatar_${req.user.id}_${Date.now()}.${ext}`;
+    const filepath = path.join(avatarsDir, filename);
+    fs.renameSync(req.file.path, filepath);
+    const url = `/images/${filename}`;
+    const user = db.updateUserProfile(req.user.id, { avatarUrl: url });
+    res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, avatarUrl: user.avatarUrl } });
+  } catch (e) {
+    console.error("avatar upload error:", e);
+    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
+    res.status(500).json({ error: "Avatar upload failed" });
+  }
 });
 
 // ----- Subjects (scoped to user) -----
