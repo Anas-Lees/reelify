@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import officeParser from "officeparser";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import JSZip from "jszip";
 import * as db from "./db.js";
 
 dotenv.config();
@@ -98,8 +99,19 @@ function requireAuth(req, res, next) {
 }
 app.use(authMiddleware);
 
+// Preserve the original extension on disk — officeparser's content-sniffing
+// is solid, but on some environments newer versions fall back to extension
+// checks for PPTX/DOCX/XLSX. Keeping the extension avoids false negatives.
 const upload = multer({
-  dest: uploadsDir,
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, file, cb) => {
+      const orig = file.originalname || "";
+      const ext = path.extname(orig).toLowerCase();
+      const stem = crypto.randomBytes(8).toString("hex");
+      cb(null, `${Date.now()}_${stem}${ext}`);
+    },
+  }),
   limits: { fileSize: 100 * 1024 * 1024 },
 });
 
@@ -258,6 +270,67 @@ function isNativelySupported(mime) {
   return NATIVE_GEMINI_MIME_PREFIXES.some((p) => mime.startsWith(p));
 }
 
+// Last-ditch text extractor for OOXML (.docx / .pptx / .xlsx). Walks the ZIP
+// archive ourselves and pulls all <w:t> / <a:t> / <t> text runs from the
+// relevant XML files. Used when officeparser fails or returns empty.
+async function rawXmlTextExtract(filePath, ext) {
+  const buf = fs.readFileSync(filePath);
+  const zip = await JSZip.loadAsync(buf);
+  const targets = [];
+  if (ext === ".docx") {
+    targets.push("word/document.xml");
+    // Headers/footers + endnotes are often informative too
+    Object.keys(zip.files).forEach((k) => {
+      if (/^word\/(header|footer|footnotes|endnotes)\d*\.xml$/.test(k)) targets.push(k);
+    });
+  } else if (ext === ".pptx") {
+    Object.keys(zip.files).forEach((k) => {
+      if (/^ppt\/slides\/slide\d+\.xml$/.test(k)) targets.push(k);
+      if (/^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(k)) targets.push(k);
+    });
+    // Sort slides numerically
+    targets.sort((a, b) => {
+      const na = parseInt((a.match(/(\d+)\.xml$/) || [])[1] || "0", 10);
+      const nb = parseInt((b.match(/(\d+)\.xml$/) || [])[1] || "0", 10);
+      return na - nb;
+    });
+  } else if (ext === ".xlsx") {
+    targets.push("xl/sharedStrings.xml");
+    Object.keys(zip.files).forEach((k) => {
+      if (/^xl\/worksheets\/sheet\d+\.xml$/.test(k)) targets.push(k);
+    });
+  } else {
+    return "";
+  }
+
+  const chunks = [];
+  for (const name of targets) {
+    const file = zip.file(name);
+    if (!file) continue;
+    const xml = await file.async("string");
+    // Pull text runs: <w:t ...>X</w:t> (DOCX), <a:t ...>X</a:t> (PPTX),
+    // <t ...>X</t> (XLSX shared strings). Plain text inside the tags only.
+    const runRe = /<(?:w:t|a:t|t)\b[^>]*>([\s\S]*?)<\/(?:w:t|a:t|t)>/g;
+    let m;
+    let block = [];
+    while ((m = runRe.exec(xml))) {
+      const text = m[1]
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'");
+      if (text) block.push(text);
+    }
+    if (block.length) {
+      chunks.push(block.join(" "));
+      // Slide breaks for PPTX so the AI can see the structure
+      if (ext === ".pptx") chunks.push("");
+    }
+  }
+  return chunks.join("\n").trim();
+}
+
 async function extractContentForAI(filePath, originalName, mimeType) {
   const ext = path.extname(originalName).toLowerCase();
   const size = fs.statSync(filePath).size;
@@ -281,17 +354,50 @@ async function extractContentForAI(filePath, originalName, mimeType) {
 
   // Office docs (DOCX/PPTX/XLSX/ODT/ODP/ODS) — extract text via officeparser
   if (OFFICE_EXTENSIONS.has(ext)) {
+    // Belt + braces: ensure the path on disk ends with the right extension so
+    // officeparser's any-extension-detection paths work.
+    let workingPath = filePath;
+    if (!workingPath.toLowerCase().endsWith(ext)) {
+      const newPath = workingPath + ext;
+      try {
+        fs.renameSync(workingPath, newPath);
+        workingPath = newPath;
+        console.log(`[upload] renamed temp file with proper ext → ${path.basename(newPath)}`);
+      } catch (e) {
+        console.warn(`[upload] couldn't rename temp file with ext: ${e.message}`);
+      }
+    }
+
     let extracted = "";
+    let parseError = null;
     try {
-      extracted = await officeParser.parseOfficeAsync(filePath, {
+      extracted = await officeParser.parseOfficeAsync(workingPath, {
         outputErrorToConsole: false,
         newlineDelimiter: "\n",
         ignoreNotes: false,
       });
     } catch (e) {
+      parseError = e;
       console.error(`[upload] officeparser threw on ${ext}:`, e?.message || e);
+    }
+
+    // Fallback for DOCX: try mammoth-style raw-text extraction by walking the
+    // archive ourselves if officeparser returned empty / threw.
+    if ((!extracted || extracted.trim().length < 30) && (ext === ".docx" || ext === ".pptx" || ext === ".xlsx")) {
+      try {
+        const raw = await rawXmlTextExtract(workingPath, ext);
+        if (raw && raw.trim().length >= 30) {
+          console.log(`[upload] fallback raw-XML extractor produced ${raw.length} chars`);
+          return { kind: "text", text: raw.slice(0, 200000) };
+        }
+      } catch (e) {
+        console.warn(`[upload] raw-XML fallback failed: ${e.message}`);
+      }
+    }
+
+    if (parseError) {
       throw new Error(
-        `Couldn't read the ${ext.replace('.', '').toUpperCase()} file (${e?.message || "parse error"}). ` +
+        `Couldn't read the ${ext.replace('.', '').toUpperCase()} file (${parseError?.message || "parse error"}). ` +
         `Try saving it as PDF and re-uploading, or paste the text directly with the Paste text button.`
       );
     }
