@@ -1224,7 +1224,35 @@ async function activateReel(reelEl, idx) {
     };
     pre.onerror = () => {
       console.warn("image preload failed", url);
-      showToast("Image failed to load");
+      // Stale URL (e.g. saved reel pointing at a wiped /generated-images path
+      // after a Render redeploy). Drop the cache and retry once so we
+      // regenerate from the prompt.
+      imageCache.delete(reelIdx);
+      imageInflight.delete(reelIdx);
+      if (reelEl.dataset.imgRetried === "1") {
+        showToast("Image failed to load");
+        return;
+      }
+      reelEl.dataset.imgRetried = "1";
+      ensureImage(reelIdx).then((freshUrl) => {
+        if (!freshUrl || currentReelEl !== reelEl) return;
+        const bg2 = reelEl.querySelector(".reel-bg");
+        const pre2 = new Image();
+        pre2.onload = () => {
+          if (!reelEl.isConnected) return;
+          bg2.style.background = "none";
+          bg2.style.backgroundImage = `url("${freshUrl}")`;
+          bg2.style.backgroundSize = "cover";
+          bg2.style.backgroundPosition = "center center";
+          bg2.style.backgroundRepeat = "no-repeat";
+          bg2.classList.remove("placeholder");
+          bg2.classList.remove("img-loaded");
+          void bg2.offsetWidth;
+          bg2.classList.add("img-loaded");
+        };
+        pre2.onerror = () => showToast("Image failed to load");
+        pre2.src = freshUrl;
+      });
     };
     pre.src = url;
   });
@@ -1489,6 +1517,12 @@ async function speakReel(reelEl, idx) {
     if (currentAudio === audio) currentAudio = null;
     if (activeRafId) { cancelAnimationFrame(activeRafId); activeRafId = null; }
     try { audio.pause(); audio.src = ""; } catch {}
+    // Drop the cached audio URL — almost always this means a stale URL
+    // (e.g. saved reel pointing at a wiped /generated-audio path after a
+    // Render redeploy). Next visit, ensureAudio will regenerate from the
+    // narration.
+    audioCache.delete(idx);
+    audioInflight.delete(idx);
     if (currentReelEl === reelEl) {
       console.warn("[audio] falling back to device voice:", why);
       browserSpeakReel(reelEl, idx, chunkEls);
@@ -2149,8 +2183,8 @@ async function refreshSavedListView() {
       refreshSavedListView();
       refreshStatsBadge();
     });
-    card.addEventListener("click", () => {
-      // Replay this saved reel as a one-reel session
+    card.addEventListener("click", async () => {
+      // Replay this saved reel as a one-reel session.
       const reel = {
         title: r.title,
         narration: r.narration,
@@ -2164,8 +2198,13 @@ async function refreshSavedListView() {
       currentQuiz = [];
       imageCache.clear(); imageInflight.clear();
       audioCache.clear(); audioInflight.clear();
-      if (r.imageUrl) imageCache.set(0, r.imageUrl);
-      if (r.audioUrl) audioCache.set(0, r.audioUrl);
+      // Pre-populate cache from the saved URLs ONLY if those files are still
+      // reachable. Render's free tier wipes /generated-images and /generated-audio
+      // on every redeploy, so the URLs the DB stored may now 404 — in which
+      // case we let ensureImage/ensureAudio regenerate from the prompt + narration.
+      const [imgOk, audOk] = await Promise.all([isUrlReachable(r.imageUrl), isUrlReachable(r.audioUrl)]);
+      if (imgOk) imageCache.set(0, r.imageUrl);
+      if (audOk) audioCache.set(0, r.audioUrl);
       currentChapterId = null;
       renderAll();
       showScreen("reels");
@@ -2182,6 +2221,18 @@ async function refreshSavedListView() {
   });
 }
 function safeParse(s) { try { return JSON.parse(s); } catch { return null; } }
+
+// HEAD-check a URL — used to verify saved-reel asset URLs still exist before
+// we use them as a cache pre-population. Render's free tier wipes
+// /generated-images + /generated-audio on every redeploy, so URLs that worked
+// yesterday may now 404 today.
+async function isUrlReachable(url) {
+  if (!url) return false;
+  try {
+    const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+    return r.ok;
+  } catch { return false; }
+}
 
 // =============================================================
 //  Server-side saved reels (replaces localStorage)

@@ -1089,6 +1089,7 @@ const BUILD_INFO = {
   bootedAt: new Date().toISOString(),
   ooxmlExtractor: "jszip-primary",
   persistence: "postgres",
+  savedAssetSelfHeal: "20260507d",
 };
 try {
   // Try to capture the deployed Git SHA if Render exposes it
