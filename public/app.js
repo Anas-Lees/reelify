@@ -73,6 +73,10 @@ let imageInflight = new Map();
 let audioCache = new Map();
 let audioInflight = new Map();
 let activeRafId = null;
+// Hoisted up here to avoid TDZ — these are read by code further up the file
+// (ensureImage, observeReels) before their original initialization sites.
+let currentChapterId = null;
+let reelsObserver = null;
 
 // ----- Settings & persistent UI state -----
 const DEFAULT_SETTINGS = {
@@ -1972,47 +1976,7 @@ async function deleteSavedReel(id) {
   await api(`/api/saved/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-// Update the action sidebar Save button: server-side now
-saveBtn.onclick = async (e) => {
-  e.stopPropagation();
-  if (!currentReelEl || currentReelEl.dataset.kind !== "narration") return;
-  const idx = Number(currentReelEl.dataset.idx);
-  // Find the reel — could be the active reel from currentReels OR mapped via the slot sequence
-  const reel = currentReels.find((r) => r.title && currentReelEl.querySelector(".reel-title")?.textContent === r.title)
-            || currentReels[idx];
-  if (!reel) return;
-  try {
-    if (saveBtn.classList.contains("saved")) {
-      // Already saved — find it on the server and remove
-      const arr = await fetchSavedReels();
-      const existing = arr.find((s) => s.title === reel.title && s.narration === reel.narration);
-      if (existing) await deleteSavedReel(existing.id);
-      saveBtn.classList.remove("saved");
-      showToast(t("toast_removed"));
-      sfx("boop"); haptic(8);
-    } else {
-      await postSavedReel({
-        title: reel.title,
-        narration: reel.narration,
-        backgroundPrompt: reel.background_prompt,
-        voice: reel.voice,
-        accentColor: reel.accent_color,
-        imageUrl: imageCache.get(idx) || "",
-        audioUrl: audioCache.get(idx) || "",
-        card: reel.card || null,
-      });
-      saveBtn.classList.add("saved");
-      saveBtn.classList.remove("popping");
-      void saveBtn.offsetWidth;
-      saveBtn.classList.add("popping");
-      showToast(t("toast_saved"));
-      sfx("ding"); haptic(10);
-    }
-    refreshStatsBadge();
-  } catch (err) {
-    showToast(err.message || "Couldn't save");
-  }
-};
+// (saveBtn click handler is wired further down, where saveBtn itself is declared)
 
 // Cache of saved reel titles (populated from /api/saved) — used by
 // refreshActionsForReel to mark the save button as already-saved without
@@ -2025,21 +1989,9 @@ async function refreshSavedTitlesCache() {
   } catch {}
 }
 
-// Override the upload-screen "Saved (N)" pill to open library page on the saved tab
-savedBtn?.addEventListener("click", (e) => {
-  e.preventDefault(); e.stopPropagation();
-  showScreen("library");
-  document.querySelector('.lib-tab[data-tab="saved"]')?.click();
-}, true);
-
-// Library button on upload screen → full-screen library page (replaces modal)
-libraryBtn?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  showScreen("library");
-  document.querySelector('.lib-tab[data-tab="subjects"]')?.click();
-  renderLibraryPage();
-  refreshSavedTitlesCache();
-}, true);
+// (savedBtn + libraryBtn click handlers are wired further down, where
+//  those elements are actually declared — keeps us out of the temporal
+//  dead zone.)
 
 // =============================================================
 //  Background fill — pre-warm all reels' assets after upload so the
@@ -2077,7 +2029,7 @@ function parseSSEEvent(text) {
   try { return { event, data: JSON.parse(dataStr) }; } catch { return null; }
 }
 
-let reelsObserver = null;
+// (reelsObserver is declared at the top of the file with the other shared state)
 function ensureReelsObserver() {
   if (reelsObserver) return reelsObserver;
   reelsObserver = new IntersectionObserver(
@@ -2532,8 +2484,9 @@ const savedList = document.getElementById("savedList");
 const savedEmpty = document.getElementById("savedEmpty");
 
 savedBtn?.addEventListener("click", () => {
-  renderSavedGallery();
-  openModal(savedModal);
+  // Take the user to the full Library page on the Saved tab (server-backed)
+  showScreen("library");
+  document.querySelector('.lib-tab[data-tab="saved"]')?.click();
 });
 
 function renderSavedGallery() {
@@ -2582,21 +2535,46 @@ function renderSavedGallery() {
   });
 }
 
-// Save button click handler (full-payload saved storage)
-saveBtn.onclick = (e) => {
+// Save button click handler — server-backed (replaces the old localStorage path)
+saveBtn.onclick = async (e) => {
   e.stopPropagation();
-  if (!currentReelEl || currentReelEl.dataset.kind === "quiz") return;
+  if (!currentReelEl || currentReelEl.dataset.kind !== "narration") return;
   const idx = Number(currentReelEl.dataset.idx);
   const reel = currentReels[idx];
   if (!reel) return;
-  const nowSaved = toggleReelSaved(reel, { imageUrl: imageCache.get(idx) });
-  saveBtn.classList.toggle("saved", nowSaved);
-  saveBtn.classList.remove("popping");
-  void saveBtn.offsetWidth;
-  saveBtn.classList.add("popping");
-  refreshStatsBadge();
-  showToast(nowSaved ? t("toast_saved") : t("toast_removed"));
-  sfx(nowSaved ? "ding" : "boop"); haptic(10);
+  try {
+    if (saveBtn.classList.contains("saved")) {
+      // Already saved — find and delete on the server
+      const arr = await fetchSavedReels();
+      const existing = arr.find((s) => s.title === reel.title && s.narration === reel.narration);
+      if (existing) await deleteSavedReel(existing.id);
+      saveBtn.classList.remove("saved");
+      savedTitlesCache.delete(`${reel.title}::${reel.narration}`);
+      showToast(t("toast_removed"));
+      sfx("boop"); haptic(8);
+    } else {
+      await postSavedReel({
+        title: reel.title,
+        narration: reel.narration,
+        backgroundPrompt: reel.background_prompt,
+        voice: reel.voice,
+        accentColor: reel.accent_color,
+        imageUrl: imageCache.get(idx) || "",
+        audioUrl: audioCache.get(idx) || "",
+        card: reel.card || null,
+      });
+      saveBtn.classList.add("saved");
+      savedTitlesCache.add(`${reel.title}::${reel.narration}`);
+      saveBtn.classList.remove("popping");
+      void saveBtn.offsetWidth;
+      saveBtn.classList.add("popping");
+      showToast(t("toast_saved"));
+      sfx("ding"); haptic(10);
+    }
+    refreshStatsBadge();
+  } catch (err) {
+    showToast(err.message || "Couldn't save");
+  }
 };
 
 // =============================================================
@@ -2754,7 +2732,7 @@ function showToast(msg) {
 // =============================================================
 //  Subjects + Library + Settings (server-persistent)
 // =============================================================
-let currentChapterId = null; // set when playing a saved chapter, so asset URLs persist
+// (currentChapterId is declared at the top of the file with the other shared state)
 
 async function fetchSubjects() {
   try {
@@ -2872,8 +2850,11 @@ const nsCreate = document.getElementById("nsCreate");
 const nsCancel = document.getElementById("nsCancel");
 
 libraryBtn?.addEventListener("click", () => {
-  renderLibrary();
-  openModal(libraryModal);
+  // Take the user to the full Library page (server-backed) instead of the modal
+  showScreen("library");
+  document.querySelector('.lib-tab[data-tab="subjects"]')?.click();
+  renderLibraryPage();
+  refreshSavedTitlesCache();
 });
 
 newSubjectBtn?.addEventListener("click", () => {
