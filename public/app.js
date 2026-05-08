@@ -2337,13 +2337,23 @@ async function refreshSavedListView() {
       currentQuiz = [];
       imageCache.clear(); imageInflight.clear();
       audioCache.clear(); audioInflight.clear();
-      // Pre-populate cache from the saved URLs ONLY if those files are still
-      // reachable. Render's free tier wipes /generated-images and /generated-audio
-      // on every redeploy, so the URLs the DB stored may now 404 — in which
-      // case we let ensureImage/ensureAudio regenerate from the prompt + narration.
-      const [imgOk, audOk] = await Promise.all([isUrlReachable(r.imageUrl), isUrlReachable(r.audioUrl)]);
-      if (imgOk) imageCache.set(0, r.imageUrl);
-      if (audOk) audioCache.set(0, r.audioUrl);
+
+      // Pre-populate the asset caches from the saved record. URLs on the
+      // /api/saved/<id>/{image,audio} pattern are DB-backed (bytes stored
+      // in Postgres) — trust them outright, no HEAD-check needed. Legacy
+      // /images/... or /audio/... URLs are on the ephemeral disk and may
+      // have been wiped by a redeploy, so HEAD-check those before using.
+      audioDbg("saved reel click id=" + r.id + " audioUrl=" + (r.audioUrl || "(empty)") + " hasAudioData=" + r.hasAudioData);
+      const isStable = (u) => typeof u === "string" && u.startsWith("/api/saved/");
+      const checks = await Promise.all([
+        isStable(r.imageUrl) ? Promise.resolve(true) : isUrlReachable(r.imageUrl),
+        isStable(r.audioUrl) ? Promise.resolve(true) : isUrlReachable(r.audioUrl),
+      ]);
+      const [imgOk, audOk] = checks;
+      if (imgOk && r.imageUrl) imageCache.set(0, r.imageUrl);
+      if (audOk && r.audioUrl) audioCache.set(0, r.audioUrl);
+      audioDbg("saved reel cache hydrated: image=" + (imgOk ? "yes" : "no") + " audio=" + (audOk ? "yes" : "no"));
+
       currentChapterId = null;
       renderAll();
       showScreen("reels");
@@ -3459,16 +3469,34 @@ async function renderLibrary() {
   }
 }
 
-function playChapter(chapter) {
+async function playChapter(chapter) {
   closeModal(libraryModal);
   currentDoc = chapter;
   currentReels = chapter.reels;
   currentQuiz = chapter.quiz || [];
   imageCache.clear(); imageInflight.clear();
   audioCache.clear(); audioInflight.clear();
-  // Pre-populate caches from saved asset maps so we don't regenerate
-  Object.entries(chapter.imageMap || {}).forEach(([k, v]) => imageCache.set(Number(k), v));
-  Object.entries(chapter.audioMap || {}).forEach(([k, v]) => audioCache.set(Number(k), v));
+
+  // Pre-populate caches from saved asset maps. Stable /api/saved/* URLs
+  // (DB-backed) we trust; legacy /images/... or /audio/... URLs we
+  // HEAD-check first because Render's ephemeral disk wipes them on
+  // redeploy. Skipping a stale URL means ensureImage/ensureAudio will
+  // regenerate from the prompt instead of hitting a 404.
+  const isStable = (u) => typeof u === "string" && u.startsWith("/api/saved/");
+  const imgEntries = Object.entries(chapter.imageMap || {});
+  const audEntries = Object.entries(chapter.audioMap || {});
+  const checks = await Promise.all([
+    ...imgEntries.map(([_, u]) => isStable(u) ? Promise.resolve(true) : isUrlReachable(u)),
+    ...audEntries.map(([_, u]) => isStable(u) ? Promise.resolve(true) : isUrlReachable(u)),
+  ]);
+  imgEntries.forEach(([k, v], i) => { if (checks[i] && v) imageCache.set(Number(k), v); });
+  audEntries.forEach(([k, v], i) => {
+    const j = imgEntries.length + i;
+    if (checks[j] && v) audioCache.set(Number(k), v);
+  });
+  if (typeof audioDbg === "function") {
+    audioDbg("playChapter " + chapter.id + " imgs=" + imageCache.size + "/" + imgEntries.length + " auds=" + audioCache.size + "/" + audEntries.length);
+  }
   currentChapterId = chapter.id;
 
   renderAll();
