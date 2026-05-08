@@ -747,9 +747,27 @@ STRICT COMPOSITION RULES:
 
     const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
     const filepath = path.join(imagesDir, filename);
-    fs.writeFileSync(filepath, Buffer.from(imageBase64, "base64"));
+    const buf = Buffer.from(imageBase64, "base64");
+    fs.writeFileSync(filepath, buf);
 
-    res.json({ url: `/images/${filename}` });
+    // Cheap PNG dimension probe — width is bytes 16-19, height bytes 20-23
+    // of an 8-byte PNG signature + IHDR chunk. Only logs once per request.
+    let dims = "unknown";
+    try {
+      if (buf.length > 24 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+        const w = buf.readUInt32BE(16);
+        const h = buf.readUInt32BE(20);
+        const ratio = (w / h).toFixed(3);
+        dims = `${w}x${h} (ratio ${ratio}, target 0.5625)`;
+        if (Math.abs(w / h - 9 / 16) > 0.05) {
+          console.warn(`[image] WARNING — non-phone-ratio image returned: ${dims}`);
+        } else {
+          console.log(`[image] ${dims}`);
+        }
+      }
+    } catch (_) { /* ignore */ }
+
+    res.json({ url: `/images/${filename}`, dims });
   } catch (e) {
     console.error("Image error:", e?.message || e);
     const msg = String(e?.message || "");
@@ -1153,7 +1171,10 @@ const BUILD_INFO = {
   persistence: "postgres",
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
-  reelLoadingGate: true,
+  reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
+  fastReelLoad: "20260508a",
+  imageDimsLogged: true,
+  prefetchWorkers: "4 image + 2 audio",
 };
 try {
   // Try to capture the deployed Git SHA if Render exposes it

@@ -859,21 +859,10 @@ function buildReel(reel, idx, total) {
   audioLoading.className = "audio-loading";
   audioLoading.innerHTML = `<div class="al-bars"><span></span><span></span><span></span></div><span class="al-text">Loading voiceover…</span>`;
 
-  // Whole-reel "gate" — covers everything until both image and audio are
-  // ready. Removed (via .ready class on reelEl) by activateReel once both
-  // assets resolve, or after a hard timeout.
-  const gate = document.createElement("div");
-  gate.className = "reel-gate";
-  gate.innerHTML = `
-    <div class="reel-gate-spinner"></div>
-    <div class="reel-gate-label">Preparing reel…</div>
-    <div class="reel-gate-status">
-      <span class="gs gs-img">image</span>
-      <span class="gs gs-aud">voice</span>
-    </div>
-  `;
-
-  reelEl.append(bg, overlay, top, content, playIcon, audioLoading, gate);
+  // No gate — the reel becomes interactive immediately. Image fades in when
+  // ready, audio starts when ready, with a tiny corner badge while voice
+  // loads (`.audio-loading`). Instagram-style: never block the surface.
+  reelEl.append(bg, overlay, top, content, playIcon, audioLoading);
 
   attachTapHandlers(reelEl);
 
@@ -1219,114 +1208,79 @@ async function activateReel(reelEl, idx) {
   // Used downstream where we still need the slot idx for progress bars
   const slotIdx = idx;
 
-  // ----- Loading gate: hold the reel content behind a frosted overlay until
-  // both the image is painted and the audio URL is ready (or we time out).
-  reelEl.classList.remove("ready");
-  const imgDot = reelEl.querySelector(".gs-img");
-  const audDot = reelEl.querySelector(".gs-aud");
-  if (imgDot) imgDot.classList.remove("ok");
-  if (audDot) audDot.classList.remove("ok");
-  let imgReady = false;
-  let audReady = false;
-  let speakStarted = false;
-  function checkReady() {
-    if (currentReelEl !== reelEl) return;
-    if (imgReady && audReady) {
-      reelEl.classList.add("ready");
-      // Kick off speakReel only after the gate drops, so the karaoke
-      // captions and audio start together with no awkward silence-then-image.
-      if (!speakStarted) {
-        speakStarted = true;
-        speakReel(reelEl, reelIdx);
-      }
-    }
-  }
-  function markImgReady() {
-    if (imgReady) return;
-    imgReady = true;
-    if (imgDot) imgDot.classList.add("ok");
-    checkReady();
-  }
-  function markAudReady() {
-    if (audReady) return;
-    audReady = true;
-    if (audDot) audDot.classList.add("ok");
-    checkReady();
-  }
-  // Hard fallback — never leave the user staring at a spinner forever.
-  // After 12s, drop the gate even if something is still in flight.
-  setTimeout(() => {
-    if (currentReelEl !== reelEl) return;
-    markImgReady(); markAudReady();
-  }, 12000);
+  // ----- Non-blocking activation (Instagram style) -----
+  // The reel UI is interactive immediately. Image fades in once it loads.
+  // speakReel manages its own audio loading and falls back to the device
+  // voice after 3.5 s if the AI voice isn't ready yet.
 
-  ensureImage(reelIdx).then((url) => {
-    if (!url || currentReelEl !== reelEl) return;
-    const bg = reelEl.querySelector(".reel-bg");
-    const pre = new Image();
-    pre.onload = () => {
-      if (!reelEl.isConnected) return;
-      // Inline-set EVERY background property so the placeholder shorthand
-      // (which set bg-size to auto) can't leave us with native-size top-left.
-      bg.style.background = "none";
-      bg.style.backgroundImage = `url("${url}")`;
-      bg.style.backgroundSize = "cover";
-      bg.style.backgroundPosition = "center center";
-      bg.style.backgroundRepeat = "no-repeat";
-      bg.classList.remove("placeholder");
-      bg.classList.remove("img-loaded");
-      void bg.offsetWidth;
-      bg.classList.add("img-loaded");
-      markImgReady();
-    };
-    pre.onerror = () => {
-      console.warn("image preload failed", url);
-      // Stale URL (e.g. saved reel pointing at a wiped /generated-images path
-      // after a Render redeploy). Drop the cache and retry once so we
-      // regenerate from the prompt.
-      imageCache.delete(reelIdx);
-      imageInflight.delete(reelIdx);
-      if (reelEl.dataset.imgRetried === "1") {
-        showToast("Image failed to load");
-        markImgReady(); // give up — drop the gate so audio can still play
-        return;
-      }
-      reelEl.dataset.imgRetried = "1";
-      ensureImage(reelIdx).then((freshUrl) => {
-        if (!freshUrl || currentReelEl !== reelEl) { markImgReady(); return; }
-        const bg2 = reelEl.querySelector(".reel-bg");
-        const pre2 = new Image();
-        pre2.onload = () => {
-          if (!reelEl.isConnected) return;
-          bg2.style.background = "none";
-          bg2.style.backgroundImage = `url("${freshUrl}")`;
-          bg2.style.backgroundSize = "cover";
-          bg2.style.backgroundPosition = "center center";
-          bg2.style.backgroundRepeat = "no-repeat";
-          bg2.classList.remove("placeholder");
-          bg2.classList.remove("img-loaded");
-          void bg2.offsetWidth;
-          bg2.classList.add("img-loaded");
-          markImgReady();
-        };
-        pre2.onerror = () => { showToast("Image failed to load"); markImgReady(); };
-        pre2.src = freshUrl;
-      });
-    };
-    pre.src = url;
-  }).catch(() => markImgReady()); // image gen failed entirely — don't block the gate
+  // Image: paint the moment we have a URL. If a URL is already cached and
+  // applied, this is a no-op (dataset.imgPainted is set after first paint).
+  paintReelImage(reelEl, reelIdx);
 
-  // Audio gate: resolve as soon as ensureAudio finishes (URL or null). null
-  // means we'll fall back to the device voice; either way, the reel is "ready"
-  // to start playing the moment ensureAudio settles.
-  ensureAudio(reelIdx).finally(() => markAudReady());
+  // Speak right away — speakReel handles cached/uncached audio internally
+  // and starts the karaoke captions in sync with whichever voice plays.
+  speakReel(reelEl, reelIdx);
 
-  // Aggressive prefetch: current + next 3 + previous 1 (image AND audio).
-  // Use the reel internal index so we hit the right slots in currentReels.
+  // Aggressive forward prefetch — current + next 3 (image AND audio), and
+  // 1 backwards. Fire-and-forget; the worker pools handle queueing.
   for (let i = reelIdx + 1; i <= reelIdx + 3; i++) {
     if (i < currentReels.length) { ensureImage(i); ensureAudio(i); }
   }
   if (reelIdx - 1 >= 0) { ensureImage(reelIdx - 1); ensureAudio(reelIdx - 1); }
+}
+
+// Paint a reel's background image when the URL is ready. Skips work if the
+// reel was already painted with the same URL (so re-activation is instant).
+function paintReelImage(reelEl, reelIdx) {
+  const bg = reelEl.querySelector(".reel-bg");
+  if (!bg) return;
+
+  // Apply a URL straight to the bg element. Browser HTTP cache makes the
+  // second paint instant; no need for a hidden <img> preload step.
+  function apply(url) {
+    if (!url || !reelEl.isConnected) return;
+    if (reelEl.dataset.imgPainted === url) return; // already showing this URL
+    reelEl.dataset.imgPainted = url;
+    bg.style.background = "none";
+    bg.style.backgroundImage = `url("${url}")`;
+    bg.style.backgroundSize = "cover";
+    bg.style.backgroundPosition = "center center";
+    bg.style.backgroundRepeat = "no-repeat";
+    bg.classList.remove("placeholder");
+    bg.classList.remove("img-loaded");
+    void bg.offsetWidth;
+    bg.classList.add("img-loaded");
+  }
+
+  // Fast path — cached URL paints synchronously, no spinner, no flicker.
+  if (imageCache.has(reelIdx)) {
+    apply(imageCache.get(reelIdx));
+    return;
+  }
+
+  // Slow path — kick off generation if not already in flight; paint when ready.
+  ensureImage(reelIdx).then((url) => {
+    if (!url || currentReelEl !== reelEl) return;
+    // Self-heal stale URLs (e.g. saved reels pointing at a wiped
+    // /generated-images path after a Render redeploy). Hidden <img> probe
+    // with a short timeout — if the URL 404s, drop the cache and try once
+    // more. If even that fails, bail silently (placeholder stays).
+    const probe = new Image();
+    let settled = false;
+    probe.onload = () => { if (settled) return; settled = true; apply(url); };
+    probe.onerror = () => {
+      if (settled) return;
+      settled = true;
+      imageCache.delete(reelIdx);
+      imageInflight.delete(reelIdx);
+      if (reelEl.dataset.imgRetried === "1") return;
+      reelEl.dataset.imgRetried = "1";
+      ensureImage(reelIdx).then((freshUrl) => {
+        if (freshUrl && currentReelEl === reelEl) apply(freshUrl);
+      });
+    };
+    probe.src = url;
+  });
 }
 
 // ----- Tap handlers (single tap = zone action, double = heart) -----
@@ -2337,28 +2291,38 @@ async function refreshSavedTitlesCache() {
 //  Background fill — pre-warm all reels' assets after upload so the
 //  user almost never waits.
 // =============================================================
-function backgroundFillAllAssets() {
-  // Pre-warm every reel's assets in the background. Two INDEPENDENT pools —
-  // image workers don't block audio workers, so audio for reel N starts as
-  // soon as the previous audio finishes, regardless of where image gen is at.
+// Single shared pool — re-entrant, so we can call this at any point and it
+// keeps draining the queue from wherever it left off. ensureImage/ensureAudio
+// are already idempotent and de-duplicate via inflight maps.
+let _bgFillRunning = false;
+async function backgroundFillAllAssets() {
+  if (_bgFillRunning) return; // already filling
   if (!currentReels.length) return;
-  const total = currentReels.length;
-
-  let imgNext = 0, audioNext = 0;
-  const imageWorker = async () => {
-    while (imgNext < total) {
-      const my = imgNext++;
-      try { await ensureImage(my); } catch {}
-    }
-  };
-  const audioWorker = async () => {
-    while (audioNext < total) {
-      const my = audioNext++;
-      try { await ensureAudio(my); } catch {}
-    }
-  };
-  imageWorker(); imageWorker();   // 2 concurrent images
-  audioWorker(); audioWorker();   // 2 concurrent audio  (caps at Gemini's quota)
+  _bgFillRunning = true;
+  try {
+    const total = () => currentReels.length;
+    let imgNext = 0, audioNext = 0;
+    const imageWorker = async () => {
+      while (imgNext < total()) {
+        const my = imgNext++;
+        try { await ensureImage(my); } catch {}
+      }
+    };
+    const audioWorker = async () => {
+      while (audioNext < total()) {
+        const my = audioNext++;
+        try { await ensureAudio(my); } catch {}
+      }
+    };
+    // 4 image workers (image gen has higher quota than TTS) + 2 audio workers
+    // (Gemini Flash TTS quota is 10/min — 2 in parallel keeps headroom).
+    await Promise.all([
+      imageWorker(), imageWorker(), imageWorker(), imageWorker(),
+      audioWorker(), audioWorker(),
+    ]);
+  } finally {
+    _bgFillRunning = false;
+  }
 }
 
 // =============================================================
@@ -2444,6 +2408,10 @@ function appendStreamingReel(reel) {
       reelEl.scrollIntoView({ behavior: "instant", block: "start" });
       activateReel(reelEl, 0);
     });
+    // Kick the prefetch worker pool the moment we have something to show.
+    // It's re-entrant, so we can also call it again at end-of-stream and
+    // it'll just resume draining whatever's left.
+    setTimeout(backgroundFillAllAssets, 50);
   }
 }
 
@@ -2566,8 +2534,9 @@ async function generateStreaming(loadingInterval) {
   }
   if (chapterTitleInput) chapterTitleInput.value = "";
 
-  // Background-fill assets for ALL reels with 2 concurrent workers
-  if (typeof backgroundFillAllAssets === "function") setTimeout(backgroundFillAllAssets, 600);
+  // Re-enter the prefetch pool to drain anything still missing now that we
+  // know the full reel count. The pool is re-entrant and self-deduplicates.
+  if (typeof backgroundFillAllAssets === "function") backgroundFillAllAssets();
 }
 
 // =============================================================

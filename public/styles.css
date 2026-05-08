@@ -2826,34 +2826,13 @@ body[data-caption-size="large"]  .caption-chunk { font-size: 42px; }
 }
 .reel.loading-audio .audio-loading { display: flex; }
 
-/* ----- Whole-reel loading gate -----
-   Shown until BOTH the image is loaded AND the audio is ready (or we've
-   given up on either). Hides the captions+card behind a frosted overlay so
-   the reel only "becomes visible" when it's actually ready to play. */
-.reel-gate {
-  position: absolute;
-  inset: 0;
-  z-index: 18;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  background: rgba(8, 6, 18, 0.78);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  pointer-events: auto;
-  opacity: 1;
-  transition: opacity 0.35s ease;
-}
-.reel.ready .reel-gate {
-  opacity: 0;
-  pointer-events: none;
-}
+/* ----- Whole-reel loading gate (REMOVED) -----
+   The gate was the "Preparing reel…" overlay that blocked the reel until
+   both image and audio were ready. Replaced with Instagram-style
+   non-blocking activation: reel is interactive immediately, image fades
+   in when ready, audio plays when ready. The CSS rule below stays as a
+   safety net in case any stale cached HTML still has a .reel-gate node. */
+.reel-gate { display: none !important; }
 .reel-gate-spinner {
   width: 48px;
   height: 48px;
