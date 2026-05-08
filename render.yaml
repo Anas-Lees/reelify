@@ -8,6 +8,11 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false   # paste your AI Studio key in the Render dashboard
+      - key: OPENAI_API_KEY
+        sync: false   # OPTIONAL — paid OpenAI key used as TTS fallback when
+                      # Gemini's preview-TTS hits its ~10 RPM rate limit.
+                      # Cost: ~$0.015 per 1k chars (so a 30-reel deck ≈ 4¢).
+                      # Without this key, audio falls back to device voice.
       - key: DATABASE_URL
         sync: false   # Neon / Supabase / any Postgres connection string
       - key: JWT_SECRET

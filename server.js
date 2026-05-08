@@ -800,8 +800,8 @@ function pcmToWav(pcmBuf, sampleRate = 24000, channels = 1, bitsPerSample = 16) 
 
 const ALLOWED_VOICES = new Set(["Aoede", "Puck", "Charon", "Kore", "Leda", "Fenrir", "Orus", "Zephyr"]);
 
-// Generate TTS for one text + voice. Returns { pcm, sampleRate }.
-async function ttsOneSegment(text, voice) {
+// Generate TTS for one text + voice via Gemini. Returns { pcm, sampleRate }.
+async function ttsGemini(text, voice) {
   const styled = `Read the following aloud in an engaging, upbeat narrator voice. Do not add anything else.\n\n${text}`;
   const result = await ai.models.generateContent({
     model: TTS_MODEL,
@@ -819,6 +819,70 @@ async function ttsOneSegment(text, voice) {
   const mime = audioPart.inlineData.mimeType || "audio/L16;rate=24000";
   const rateMatch = mime.match(/rate=(\d+)/i);
   return { pcm, sampleRate: rateMatch ? parseInt(rateMatch[1], 10) : 24000 };
+}
+
+// OpenAI TTS as a fallback when Gemini's preview model is rate-limited.
+// Set OPENAI_API_KEY in Render env vars to enable. Returns a fully-formed
+// WAV Buffer (not raw PCM) — OpenAI returns a complete audio container.
+//
+// Voice mapping: Gemini voice names -> roughly equivalent OpenAI voices,
+// chosen so the user's per-reel voice preference still feels consistent.
+const OPENAI_VOICE_MAP = {
+  Aoede:  "nova",     // warm, narrator-y
+  Puck:   "fable",    // playful
+  Charon: "onyx",     // deep
+  Kore:   "alloy",    // neutral
+  Leda:   "shimmer",  // bright
+  Fenrir: "echo",     // clear
+  Orus:   "onyx",     // deep
+  Zephyr: "alloy",    // neutral
+};
+async function ttsOpenAI(text, voice) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    const e = new Error("OPENAI_API_KEY not set");
+    e.code = "no-openai-key";
+    throw e;
+  }
+  const oaiVoice = OPENAI_VOICE_MAP[voice] || "nova";
+  const r = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "tts-1",
+      voice: oaiVoice,
+      input: text.slice(0, 4096), // OpenAI limit per call
+      response_format: "wav",
+    }),
+  });
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    throw new Error(`OpenAI TTS HTTP ${r.status}: ${body.slice(0, 200)}`);
+  }
+  const buf = Buffer.from(await r.arrayBuffer());
+  return { wav: buf };
+}
+
+// Try Gemini first, fall back to OpenAI when Gemini is rate-limited.
+// Returns either { pcm, sampleRate } (Gemini path — caller wraps with WAV
+// header) or { wav } (OpenAI path — already a complete WAV).
+async function ttsOneSegment(text, voice) {
+  try {
+    return await ttsGemini(text, voice);
+  } catch (e) {
+    const msg = String(e?.message || e);
+    const isQuota = /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests/i.test(msg);
+    if (!isQuota) throw e;
+    if (!process.env.OPENAI_API_KEY) {
+      // No fallback configured — surface the original error
+      throw e;
+    }
+    console.log("[tts] Gemini quota — falling back to OpenAI for this segment");
+    return await ttsOpenAI(text, voice);
+  }
 }
 
 // Parse a podcast script split into [A]: / [B]: turns.
@@ -853,8 +917,7 @@ app.post("/api/tts", requireAuth, async (req, res) => {
       return res.json({ url: `/audio/${filename}`, cached: true });
     }
 
-    let pcmBuffer;
-    let sampleRate = 24000;
+    let wavBuffer;
 
     if (isPodcast) {
       // Try to parse turns. If the model didn't tag, fall back to alternating split by sentence.
@@ -863,24 +926,33 @@ app.post("/api/tts", requireAuth, async (req, res) => {
         const sentences = text.split(/(?<=[.!?])\s+/).filter((s) => s.trim());
         turns = sentences.map((s, i) => ({ speaker: i % 2 === 0 ? "A" : "B", text: s.trim() }));
       }
+      // Podcast mode requires raw PCM splicing (so we can insert silence
+      // between turns), so the OpenAI fallback path can't serve podcast
+      // mode. We always use Gemini directly here. If Gemini quota is
+      // exhausted, the caller gets a 503 and falls back to device voice.
       const pcmParts = [];
+      let sampleRate = 24000;
       for (const turn of turns) {
         const v = turn.speaker === "A" ? voice : voiceB;
-        const { pcm, sampleRate: sr } = await ttsOneSegment(turn.text, v);
+        const { pcm, sampleRate: sr } = await ttsGemini(turn.text, v);
         sampleRate = sr;
         pcmParts.push(pcm);
-        // 180ms silence between turns so the dialogue feels conversational
         const silenceBytes = Math.floor(sampleRate * 0.18) * 2;
         pcmParts.push(Buffer.alloc(silenceBytes));
       }
-      pcmBuffer = Buffer.concat(pcmParts);
+      wavBuffer = pcmToWav(Buffer.concat(pcmParts), sampleRate);
     } else {
+      // Solo mode supports the full Gemini -> OpenAI fallback chain.
       const seg = await ttsOneSegment(text, voice);
-      pcmBuffer = seg.pcm;
-      sampleRate = seg.sampleRate;
+      if (seg.wav) {
+        // OpenAI path — already a complete WAV file
+        wavBuffer = seg.wav;
+      } else {
+        // Gemini path — wrap PCM with a WAV header
+        wavBuffer = pcmToWav(seg.pcm, seg.sampleRate);
+      }
     }
 
-    const wavBuffer = pcmToWav(pcmBuffer, sampleRate);
     fs.writeFileSync(filepath, wavBuffer);
 
     res.json({ url: `/audio/${filename}`, cached: false });
@@ -1190,11 +1262,12 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260508i",
+  fastReelLoad: "20260508j",
   ttsPrefetchSerial: true,
   ttsClientRateLimit: "8 RPM, 60s quota cooldown",
   deviceVoiceWarmedUp: true,
   chapterAssetsPersisted: true,
+  ttsFallbackProvider: process.env.OPENAI_API_KEY ? "OpenAI tts-1" : "device voice only",
   imageDimsLogged: true,
   prefetchWorkers: "4 image + 2 audio",
   audioUnlockNonMuted: false, // reverted — muted unlock matches the working OLD pattern

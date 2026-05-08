@@ -45,6 +45,7 @@ gh auth refresh -h github.com -s workflow
 Click that, sign in with GitHub. Render reads `render.yaml` and asks for the env vars:
 
 - **`GEMINI_API_KEY`** — your AI Studio key from https://aistudio.google.com/apikey
+- **`OPENAI_API_KEY`** — *optional but recommended.* Get one from https://platform.openai.com/api-keys. With this set, when Gemini's preview-TTS hits its ~10 RPM rate limit the server transparently falls back to OpenAI `tts-1` so your voice keeps playing. Cost: ~$0.015 per 1k chars (a 30-reel deck ≈ 4¢). **Without this key, you'll fall back to the device voice when Gemini quota runs out.**
 - **`DATABASE_URL`** — the Neon connection string from step 2
 - **`JWT_SECRET`** — Render will offer to **auto-generate** a strong random one. Accept it. Reused on every redeploy so your sessions stay valid.
 
