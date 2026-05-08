@@ -1,6 +1,7 @@
 node_modules/
 .env
 .jwt-secret
+.claude/
 uploads/
 generated-images/
 generated-audio/
