@@ -1172,13 +1172,14 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260508c",
+  fastReelLoad: "20260508d",
   imageDimsLogged: true,
   prefetchWorkers: "4 image + 2 audio",
-  audioUnlockNonMuted: true,
+  audioUnlockNonMuted: false, // reverted — muted unlock matches the working OLD pattern
   tapToResumeOnAutoplayBlock: true,
   captionLineHeight: 1.42,
-  persistentReelAudio: true,
+  persistentReelAudio: false, // reverted to per-reel new Audio
+  speakReelTriggerFix: "ensureAudio.finally + 3.5s timeout",
 };
 try {
   // Try to capture the deployed Git SHA if Render exposes it

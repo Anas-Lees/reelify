@@ -1217,9 +1217,23 @@ async function activateReel(reelEl, idx) {
   // applied, this is a no-op (dataset.imgPainted is set after first paint).
   paintReelImage(reelEl, reelIdx);
 
-  // Speak right away — speakReel handles cached/uncached audio internally
-  // and starts the karaoke captions in sync with whichever voice plays.
-  speakReel(reelEl, reelIdx);
+  // Audio: trigger speakReel ONCE — either when ensureAudio resolves (so
+  // audioCache is populated and speakReel takes the synchronous path
+  // straight to audio.play()), or after a 3.5s safety timeout that lets
+  // speakReel's internal fallback bridge to the device voice if AI TTS
+  // is taking too long. This is the OLD-but-working pattern: keeping
+  // audio.play() close in time to the audio fetch resolution preserves
+  // Chromium WebView's autoplay-grace window granted by the Generate
+  // button click.
+  let speakStarted = false;
+  function startSpeak() {
+    if (speakStarted) return;
+    if (currentReelEl !== reelEl) return; // user already scrolled away
+    speakStarted = true;
+    speakReel(reelEl, reelIdx);
+  }
+  ensureAudio(reelIdx).finally(startSpeak);
+  setTimeout(startSpeak, 3500);
 
   // Aggressive forward prefetch — current + next 3 (image AND audio), and
   // 1 backwards. Fire-and-forget; the worker pools handle queueing.
@@ -1375,23 +1389,9 @@ function togglePlay(reelEl) {
   }
 }
 
-// AbortController so we can cleanly remove all listeners attached to the
-// shared reel audio element when we move to the next reel.
-let _audioListenerAbort = null;
-// Last URL applied to the persistent reel audio element. Lets us avoid a
-// pointless network reload when the user scrolls back to a reel we just
-// played — we just rewind to currentTime=0 instead.
-let _lastAudioUrl = null;
-
 function stopAudio() {
-  if (_audioListenerAbort) {
-    try { _audioListenerAbort.abort(); } catch {}
-    _audioListenerAbort = null;
-  }
   if (currentAudio) {
-    try { currentAudio.pause(); } catch {}
-    // Don't clear .src on the persistent reel audio — that re-locks it on
-    // some WebViews. The next speakReel will overwrite .src cleanly.
+    try { currentAudio.pause(); currentAudio.src = ""; } catch {}
     currentAudio = null;
   }
   if (activeRafId) { cancelAnimationFrame(activeRafId); activeRafId = null; }
@@ -1430,25 +1430,13 @@ async function speakReel(reelEl, idx) {
     return browserSpeakReel(reelEl, idx, chunkEls);
   }
 
-  // Reuse the SHARED, already-unlocked persistent audio element. New
-  // `new Audio(url)` instances would lose the unlock and require a fresh
-  // user gesture; reusing the same element keeps playback permission.
-  const audio = getReelAudio();
-
-  // Cleanly drop listeners from any previous reel before attaching new ones.
-  if (_audioListenerAbort) { try { _audioListenerAbort.abort(); } catch {} }
-  _audioListenerAbort = new AbortController();
-  const sig = _audioListenerAbort.signal;
-
-  // Apply per-reel state. If we're about to play the same URL we just
-  // played (user scrolled back), skip the .src reload and just rewind.
-  try { audio.pause(); } catch {}
-  if (_lastAudioUrl !== audioUrl) {
-    audio.src = audioUrl;
-    _lastAudioUrl = audioUrl;
-  } else {
-    try { audio.currentTime = 0; } catch {}
-  }
+  // Create a fresh Audio per reel. This is the OLD-and-working pattern:
+  // when speakReel is invoked from the .finally() of ensureAudio (or a
+  // short setTimeout fallback), `new Audio(url).play()` benefits from
+  // Chromium WebView's autoplay-grace window because the network
+  // completion is recent and the page has already had a real user gesture
+  // (the Generate button click).
+  const audio = new Audio(audioUrl);
   audio.preload = "auto";
   audio.playbackRate = SPEEDS[speedIdx];
   audio.muted = isMuted;
@@ -1479,7 +1467,7 @@ async function speakReel(reelEl, idx) {
     });
   }
   if (audio.readyState >= 1) buildTiming();
-  else audio.addEventListener("loadedmetadata", buildTiming, { once: true, signal: sig });
+  else audio.addEventListener("loadedmetadata", buildTiming, { once: true });
 
   let lastChunkIdx = -1;
   let lastWordIdx = -1;
@@ -1531,7 +1519,6 @@ async function speakReel(reelEl, idx) {
   }
 
   audio.addEventListener("ended", () => {
-    if (currentReelEl !== reelEl) return;
     if (chunkData) {
       chunkData.forEach((c) => c.el.classList.add("exiting"));
       chunkData[chunkData.length - 1]?.el.classList.add("active");
@@ -1548,17 +1535,16 @@ async function speakReel(reelEl, idx) {
         if (next) next.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }, 700);
-  }, { signal: sig });
+  });
 
   audio.addEventListener("pause", () => {
     if (currentReelEl === reelEl && !audio.ended) reelEl.classList.add("paused");
-  }, { signal: sig });
+  });
   audio.addEventListener("play", () => {
-    if (currentReelEl !== reelEl) return;
     reelEl.classList.remove("paused");
     reelEl.classList.remove("needs-tap");
     if (!activeRafId) tick();
-  }, { signal: sig });
+  });
 
   // If the audio file 404s, the codec isn't supported, or anything else makes
   // the <audio> element fail, silently switch to the device voice.
@@ -1576,7 +1562,7 @@ async function speakReel(reelEl, idx) {
       browserSpeakReel(reelEl, idx, chunkEls);
     }
   }
-  audio.addEventListener("error", () => fallbackToBrowserVoice("error event"), { signal: sig });
+  audio.addEventListener("error", () => fallbackToBrowserVoice("error event"));
   audio.addEventListener("stalled", () => {
     // Give the network a few seconds before giving up
     setTimeout(() => {
@@ -1584,7 +1570,7 @@ async function speakReel(reelEl, idx) {
         fallbackToBrowserVoice("stalled");
       }
     }, 8000);
-  }, { signal: sig });
+  });
 
   try {
     await audio.play();
@@ -2934,57 +2920,29 @@ function setSfxOn(v) { sfxOn = !!v; try { localStorage.setItem("reelify-sfx", v 
 // in a user-gesture chain. Trick: play 50ms of silent base64 WAV during the
 // first tap so subsequent .play() calls are allowed.
 // =============================================================
-//  Audio unlock + single persistent reel-audio element
+//  Audio unlock — keep the page in "user has interacted" state
 // =============================================================
-// The Chromium / iOS-WebView autoplay policy grants playback permission
-// per-element after a user gesture, NOT page-wide. A `new Audio(url)`
-// created inside an SSE callback (well after the user's last tap) is
-// treated as "no gesture" and `play()` is silently rejected.
-//
-// Our trick: use ONE shared <audio> element for the whole app. The very
-// first time we run inside a real user gesture (the click on Generate)
-// we play a tiny silent WAV on it. From then on, the element has the
-// permission flag set, and re-using it for every reel works without
-// having to re-acquire permission each time.
+// Chromium WebView (and iOS Safari) allow non-muted audio.play() once
+// the page has been interacted with. The Generate-button click counts
+// as that interaction. We also play a tiny muted WAV on the first user
+// gesture as a belt-and-braces unlock for older WebView versions.
 
 let audioUnlocked = false;
-let _reelAudio = null;
-function getReelAudio() {
-  if (!_reelAudio) {
-    _reelAudio = new Audio();
-    _reelAudio.preload = "auto";
-    _reelAudio.playsInline = true;
-    _reelAudio.setAttribute("playsinline", "");
-    _reelAudio.setAttribute("webkit-playsinline", "");
-    // Hidden but kept in DOM so iOS WebKit doesn't unmount and re-lock it
-    _reelAudio.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;";
-    document.body.appendChild(_reelAudio);
-  }
-  return _reelAudio;
-}
-
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
   const c = getAudioCtx();
   if (c?.state === "suspended") c.resume().catch(() => {});
   try {
-    // Play+pause a tiny silent WAV on the persistent element while we
-    // still have transient activation. Muted because muted-play is the
-    // most permissive across browsers; we lift the muted flag right
-    // after, so subsequent .src + .play() runs at normal volume.
-    const a = getReelAudio();
-    a.muted = true;
-    a.volume = 0;
-    a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-    const p = a.play();
-    const cleanup = () => {
-      try { a.pause(); } catch {}
-      a.muted = false;
-      a.volume = 1;
-    };
-    if (p && p.then) p.then(cleanup).catch(cleanup);
-    else cleanup();
+    // Muted play during the user gesture grants the page-level
+    // "user has interacted with audio" flag on Chromium.
+    const silent = new Audio(
+      "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
+    );
+    silent.muted = true;
+    silent.volume = 0;
+    const p = silent.play();
+    if (p && p.then) p.then(() => silent.pause()).catch(() => {});
   } catch {}
 }
 
