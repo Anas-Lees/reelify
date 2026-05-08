@@ -774,11 +774,11 @@ html[dir="rtl"] .reel-card-lang { right: auto; left: 40px; }
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.32em;
+  gap: 0.32em 0.36em;          /* row-gap 0.32em, col-gap 0.36em — comfortable line spacing */
   text-align: center;
   font-size: 34px;
   font-weight: 800;
-  line-height: 1.18;
+  line-height: 1.42;            /* was 1.18 — gave too-tight stacking on wrapped 3-4 word chunks */
   letter-spacing: -0.015em;
   color: rgba(255,255,255,0.96);
   padding: 0 8px;

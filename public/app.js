@@ -1557,10 +1557,13 @@ async function speakReel(reelEl, idx) {
   try {
     await audio.play();
   } catch (err) {
-    // Mobile autoplay was blocked — show a big "tap to start" overlay
+    // Mobile autoplay was blocked. Show the play-icon affordance, AND
+    // queue the playback so the very next tap anywhere on the screen
+    // starts it — much friendlier than forcing the user to find the icon.
     reelEl.classList.add("paused");
     reelEl.classList.add("needs-tap");
-    console.warn("autoplay blocked", err);
+    queuePlayOnNextTap(audio, reelEl);
+    console.warn("[audio] autoplay blocked — will retry on next tap:", err?.message || err);
   }
 }
 
@@ -2899,20 +2902,46 @@ function setSfxOn(v) { sfxOn = !!v; try { localStorage.setItem("reelify-sfx", v 
 // in a user-gesture chain. Trick: play 50ms of silent base64 WAV during the
 // first tap so subsequent .play() calls are allowed.
 let audioUnlocked = false;
+// Keep the unlock-element alive for the lifetime of the page so the
+// browser's "user has interacted with audio" flag stays set across reels.
+let _unlockEl = null;
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
   const c = getAudioCtx();
   if (c?.state === "suspended") c.resume().catch(() => {});
   try {
-    const silent = new Audio(
+    // Non-muted (volume 0) play inside a real user gesture — this is what
+    // grants `new Audio(...)` permission on iOS / Android Chromium WebViews.
+    // A muted play does NOT grant non-muted permission, so don't set muted.
+    _unlockEl = new Audio(
       "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
     );
-    silent.muted = true;
-    silent.volume = 0;
-    const p = silent.play();
-    if (p && p.then) p.then(() => silent.pause()).catch(() => {});
+    _unlockEl.volume = 0;
+    const p = _unlockEl.play();
+    if (p && p.then) p.then(() => { _unlockEl.pause(); }).catch(() => {});
   } catch {}
+}
+
+// Pending playback that was blocked by an autoplay policy. We attach a
+// global one-time pointerdown listener that retries the play on the very
+// next tap anywhere on the page — so the user never has to hunt for a
+// specific button.
+let _pendingPlay = null;
+function queuePlayOnNextTap(audio, reelEl) {
+  _pendingPlay = { audio, reelEl };
+  const handler = () => {
+    const job = _pendingPlay;
+    _pendingPlay = null;
+    if (!job) return;
+    if (currentReelEl !== job.reelEl) return;
+    job.audio.play().then(() => {
+      job.reelEl.classList.remove("paused");
+      job.reelEl.classList.remove("needs-tap");
+    }).catch(() => {});
+  };
+  document.addEventListener("pointerdown", handler, { once: true, passive: true });
+  document.addEventListener("touchstart",  handler, { once: true, passive: true });
 }
 window.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
 window.addEventListener("touchstart",  unlockAudio, { once: true, passive: true });
