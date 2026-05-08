@@ -96,6 +96,18 @@ export async function initSchema() {
     ALTER TABLE saved_reels ADD COLUMN IF NOT EXISTS image_mime TEXT DEFAULT '';
     ALTER TABLE saved_reels ADD COLUMN IF NOT EXISTS audio_data BYTEA;
     ALTER TABLE saved_reels ADD COLUMN IF NOT EXISTS audio_mime TEXT DEFAULT '';
+
+    -- Chapter assets. One row per (chapter, kind, reelIdx) holds the
+    -- generated image/audio bytes so a chapter can be replayed without
+    -- regenerating after a Render redeploy wipes /images and /audio.
+    CREATE TABLE IF NOT EXISTS chapter_assets (
+      chapter_id TEXT NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      reel_idx INTEGER NOT NULL,
+      data BYTEA NOT NULL,
+      mime TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (chapter_id, kind, reel_idx)
+    );
   `);
   console.log("[db] schema OK");
 }
@@ -386,15 +398,39 @@ export async function createChapter({ subjectId, title, reels, quiz, settings, f
 export async function deleteChapter(id) {
   await pool.query(`DELETE FROM chapters WHERE id = $1`, [id]);
 }
-export async function setChapterAsset(id, kind, reelIdx, url) {
+export async function setChapterAsset(id, kind, reelIdx, url, dataBuf, mime) {
   const cur = await getChapter(id);
   if (!cur) return null;
   const isAudio = kind === "audio";
   const map = isAudio ? cur.audioMap : cur.imageMap;
-  map[String(reelIdx)] = url;
+  // If we have raw bytes, persist them to chapter_assets and rewrite the
+  // map URL to the stable /api/chapters/:id/asset/<kind>/<idx> endpoint.
+  // This way the chapter survives a Render redeploy that wipes /images
+  // and /audio. Falls back to the original URL when bytes are unavailable.
+  let finalUrl = url;
+  if (dataBuf && dataBuf.length) {
+    await pool.query(
+      `INSERT INTO chapter_assets (chapter_id, kind, reel_idx, data, mime)
+         VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (chapter_id, kind, reel_idx) DO UPDATE
+         SET data = EXCLUDED.data, mime = EXCLUDED.mime`,
+      [id, kind, Number(reelIdx), dataBuf, mime || ""]
+    );
+    finalUrl = `/api/chapters/${id}/asset/${kind}/${Number(reelIdx)}`;
+  }
+  map[String(reelIdx)] = finalUrl;
   const col = isAudio ? "audio_map" : "image_map";
   await pool.query(`UPDATE chapters SET ${col} = $1 WHERE id = $2`, [JSON.stringify(map), id]);
   return map;
+}
+
+export async function getChapterAsset(id, kind, reelIdx) {
+  const { rows } = await pool.query(
+    `SELECT data, mime FROM chapter_assets WHERE chapter_id = $1 AND kind = $2 AND reel_idx = $3 LIMIT 1`,
+    [id, kind, Number(reelIdx)]
+  );
+  if (!rows[0]) return null;
+  return { data: rows[0].data, mime: rows[0].mime || (kind === "audio" ? "audio/wav" : "image/png") };
 }
 
 export default pool;

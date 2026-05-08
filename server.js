@@ -1073,9 +1073,27 @@ app.post("/api/chapters/:id/asset", requireAuth, async (req, res) => {
   if (!chapter) return res.status(404).json({ error: "Chapter not found" });
   const subj = await db.getSubject(chapter.subjectId);
   if (!subj || subj.userId !== req.user.id) return res.status(404).json({ error: "Chapter not found" });
-  const map = await db.setChapterAsset(req.params.id, kind, reelIdx, url);
+  // Read the bytes off disk (if the URL points at a local generated file)
+  // so the chapter survives a Render redeploy that wipes /images and /audio.
+  const asset = loadLocalAsset(url, kind);
+  const map = await db.setChapterAsset(
+    req.params.id, kind, reelIdx, url,
+    asset?.data || null, asset?.mime || ""
+  );
   if (!map) return res.status(404).json({ error: "Chapter not found" });
-  res.json({ ok: true });
+  res.json({ ok: true, persisted: !!asset });
+});
+
+// Stable, DB-backed serve endpoint for chapter assets. Public by chapter
+// UUID — same threat model as /api/saved/:id/{image,audio}.
+app.get("/api/chapters/:id/asset/:kind/:idx", async (req, res) => {
+  const { id, kind, idx } = req.params;
+  if (kind !== "image" && kind !== "audio") return res.status(400).json({ error: "bad kind" });
+  const a = await db.getChapterAsset(id, kind, idx);
+  if (!a) return res.status(404).json({ error: "no asset" });
+  res.set("Content-Type", a.mime);
+  res.set("Cache-Control", "public, max-age=31536000, immutable");
+  res.send(a.data);
 });
 
 // ----- Saved reels (server-persistent) -----
@@ -1172,10 +1190,11 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260508h",
+  fastReelLoad: "20260508i",
   ttsPrefetchSerial: true,
   ttsClientRateLimit: "8 RPM, 60s quota cooldown",
   deviceVoiceWarmedUp: true,
+  chapterAssetsPersisted: true,
   imageDimsLogged: true,
   prefetchWorkers: "4 image + 2 audio",
   audioUnlockNonMuted: false, // reverted — muted unlock matches the working OLD pattern
