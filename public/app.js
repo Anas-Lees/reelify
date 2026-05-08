@@ -1236,12 +1236,15 @@ async function activateReel(reelEl, idx) {
   ensureAudio(reelIdx).finally(() => startSpeak("ensureAudio.finally"));
   setTimeout(() => startSpeak("3.5s timeout"), 3500);
 
-  // Aggressive forward prefetch — current + next 3 (image AND audio), and
-  // 1 backwards. Fire-and-forget; the worker pools handle queueing.
+  // Forward prefetch: image is cheap (kick off 3 ahead), audio is rate-
+  // limited so we only nudge the next ONE — the background worker pool
+  // serializes the rest. Running 4 TTS requests in parallel was burning
+  // through the Gemini TTS 10/min quota and starving the very first reel.
   for (let i = reelIdx + 1; i <= reelIdx + 3; i++) {
-    if (i < currentReels.length) { ensureImage(i); ensureAudio(i); }
+    if (i < currentReels.length) ensureImage(i);
   }
-  if (reelIdx - 1 >= 0) { ensureImage(reelIdx - 1); ensureAudio(reelIdx - 1); }
+  if (reelIdx + 1 < currentReels.length) ensureAudio(reelIdx + 1);
+  if (reelIdx - 1 >= 0) ensureImage(reelIdx - 1);
 }
 
 // Paint a reel's background image when the URL is ready. Skips work if the
@@ -1706,23 +1709,34 @@ function ensureAudio(idx) {
   const voiceB = (settings.voiceB && settings.voiceB !== "auto") ? settings.voiceB : (reel.voiceB || "Charon");
   const format = settings.format || "solo";
 
+  audioDbg("ensureAudio idx=" + idx + " POST /api/tts");
   const p = api("/api/tts", {
     method: "POST",
     body: { text: reel.narration, voice, voiceB, format },
   })
-    .then((r) => r.json())
+    .then(async (r) => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const err = new Error("HTTP " + r.status + " " + (data.error || ""));
+        err.status = r.status; err.body = data;
+        throw err;
+      }
+      return data;
+    })
     .then((data) => {
       if (!data.url) throw new Error(data.error || "no audio");
       audioCache.set(idx, data.url);
       audioInflight.delete(idx);
       if (currentChapterId) postChapterAsset(currentChapterId, "audio", idx, data.url);
+      audioDbg("ensureAudio idx=" + idx + " OK url=" + data.url.slice(0, 40));
       return data.url;
     })
     .catch((e) => {
       audioInflight.delete(idx);
       const msg = String(e?.message || e);
-      // Suppress noise; fall back to device voice silently in the caller.
-      if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) {
+      const status = e?.status || "?";
+      audioDbg("ensureAudio idx=" + idx + " FAIL " + status + " " + msg.slice(0, 80));
+      if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg) || status === 503) {
         console.warn("[tts] quota — falling back to device voice", msg.slice(0, 120));
       } else {
         console.warn("[tts] failed", msg.slice(0, 200));
@@ -2341,11 +2355,14 @@ async function backgroundFillAllAssets() {
         try { await ensureAudio(my); } catch {}
       }
     };
-    // 4 image workers (image gen has higher quota than TTS) + 2 audio workers
-    // (Gemini Flash TTS quota is 10/min — 2 in parallel keeps headroom).
+    // 4 image workers (image gen quota is generous) + just 1 audio worker.
+    // Gemini Flash TTS free tier is ~10 req/min. Two in parallel was
+    // bursting through the budget the moment a session started, causing
+    // the FIRST reel's audio to also 429 — voice never plays. Serial TTS
+    // keeps the first reel's slot at the front of the line.
     await Promise.all([
       imageWorker(), imageWorker(), imageWorker(), imageWorker(),
-      audioWorker(), audioWorker(),
+      audioWorker(),
     ]);
   } finally {
     _bgFillRunning = false;

@@ -1172,7 +1172,8 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260508e",
+  fastReelLoad: "20260508f",
+  ttsPrefetchSerial: true,
   imageDimsLogged: true,
   prefetchWorkers: "4 image + 2 audio",
   audioUnlockNonMuted: false, // reverted — muted unlock matches the working OLD pattern
