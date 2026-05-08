@@ -1226,14 +1226,15 @@ async function activateReel(reelEl, idx) {
   // Chromium WebView's autoplay-grace window granted by the Generate
   // button click.
   let speakStarted = false;
-  function startSpeak() {
+  function startSpeak(why) {
     if (speakStarted) return;
     if (currentReelEl !== reelEl) return; // user already scrolled away
     speakStarted = true;
+    audioDbg("startSpeak idx=" + reelIdx + " via=" + why);
     speakReel(reelEl, reelIdx);
   }
-  ensureAudio(reelIdx).finally(startSpeak);
-  setTimeout(startSpeak, 3500);
+  ensureAudio(reelIdx).finally(() => startSpeak("ensureAudio.finally"));
+  setTimeout(() => startSpeak("3.5s timeout"), 3500);
 
   // Aggressive forward prefetch — current + next 3 (image AND audio), and
   // 1 backwards. Fire-and-forget; the worker pools handle queueing.
@@ -1408,6 +1409,8 @@ async function speakReel(reelEl, idx) {
   chunkEls.forEach((c) => c.classList.remove("active", "exiting"));
   allWordEls.forEach((w) => w.classList.remove("active", "spoken"));
 
+  audioDbg("speakReel " + idx + " start, cached=" + audioCache.has(idx));
+
   reelEl.classList.add("loading-audio");
   // Wait at most ~3.5s for the AI voice. If it's not ready by then, start with
   // the device voice immediately — the user shouldn't sit in silence while
@@ -1424,11 +1427,12 @@ async function speakReel(reelEl, idx) {
     ]);
   }
   reelEl.classList.remove("loading-audio");
-  if (currentReelEl !== reelEl) return;
+  if (currentReelEl !== reelEl) { audioDbg("speakReel " + idx + " bail (reel changed)"); return; }
   if (!audioUrl) {
-    // AI voice still loading — start device voice now, AI will be there for the next reel
+    audioDbg("speakReel " + idx + " no URL, device voice");
     return browserSpeakReel(reelEl, idx, chunkEls);
   }
+  audioDbg("speakReel " + idx + " got URL, starting Audio");
 
   // Create a fresh Audio per reel. This is the OLD-and-working pattern:
   // when speakReel is invoked from the .finally() of ensureAudio (or a
@@ -1574,6 +1578,7 @@ async function speakReel(reelEl, idx) {
 
   try {
     await audio.play();
+    audioDbg("audio.play() OK reel " + idx + " muted=" + audio.muted + " vol=" + audio.volume);
   } catch (err) {
     // Mobile autoplay was blocked. Show the play-icon affordance, AND
     // queue the playback so the very next tap anywhere on the screen
@@ -1581,6 +1586,7 @@ async function speakReel(reelEl, idx) {
     reelEl.classList.add("paused");
     reelEl.classList.add("needs-tap");
     queuePlayOnNextTap(audio, reelEl);
+    audioDbg("audio.play() BLOCKED reel " + idx + ": " + (err?.name || "") + " " + (err?.message || err));
     console.warn("[audio] autoplay blocked — will retry on next tap:", err?.message || err);
   }
 }
@@ -2931,6 +2937,7 @@ let audioUnlocked = false;
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
+  if (typeof audioDbg === "function") audioDbg("unlockAudio fired");
   const c = getAudioCtx();
   if (c?.state === "suspended") c.resume().catch(() => {});
   try {
@@ -2942,8 +2949,15 @@ function unlockAudio() {
     silent.muted = true;
     silent.volume = 0;
     const p = silent.play();
-    if (p && p.then) p.then(() => silent.pause()).catch(() => {});
-  } catch {}
+    if (p && p.then) p.then(() => {
+      silent.pause();
+      if (typeof audioDbg === "function") audioDbg("unlock silent play OK");
+    }).catch((e) => {
+      if (typeof audioDbg === "function") audioDbg("unlock silent play FAIL: " + (e?.name || e));
+    });
+  } catch (e) {
+    if (typeof audioDbg === "function") audioDbg("unlock threw: " + (e?.message || e));
+  }
 }
 
 // Pending playback that was blocked by an autoplay policy. We attach a
@@ -3081,6 +3095,46 @@ function showToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 1700);
 }
+
+// Audio diagnostic overlay - tap the small green dot in bottom-right to
+// toggle on/off. Shows the last several audio events so we can see why
+// voice isn't playing without needing remote-debug devtools.
+let _audioDbgEl = null;
+const _audioDbgLines = [];
+const _audioDbgEnabled = (() => {
+  try {
+    if (location.search.indexOf("audiodbg=1") >= 0) return true;
+    if (localStorage.getItem("edu-audio-dbg") === "1") return true;
+  } catch (_) {}
+  return false;
+})();
+function audioDbg(line) {
+  console.log("[audiodbg]", line);
+  if (!_audioDbgEnabled) return;
+  if (!_audioDbgEl) {
+    _audioDbgEl = document.createElement("div");
+    _audioDbgEl.id = "audioDbg";
+    _audioDbgEl.style.cssText = "position:fixed;left:6px;right:6px;bottom:64px;z-index:99999;max-height:30vh;overflow:auto;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,0.78);color:#a7f3d0;font-family:monospace;font-size:11px;line-height:1.35;pointer-events:none;white-space:pre-wrap;word-break:break-word";
+    document.body.appendChild(_audioDbgEl);
+  }
+  const ts = new Date().toISOString().slice(11, 23);
+  _audioDbgLines.push(ts + "  " + line);
+  if (_audioDbgLines.length > 12) _audioDbgLines.shift();
+  _audioDbgEl.textContent = _audioDbgLines.join("\n");
+}
+window.addEventListener("DOMContentLoaded", () => {
+  const dot = document.createElement("div");
+  dot.style.cssText = "position:fixed;right:8px;bottom:8px;width:14px;height:14px;border-radius:50%;background:#0f766e;z-index:99999;opacity:0.5";
+  dot.title = "audio dbg";
+  dot.addEventListener("click", () => {
+    try {
+      const v = localStorage.getItem("edu-audio-dbg") === "1" ? "0" : "1";
+      localStorage.setItem("edu-audio-dbg", v);
+      location.reload();
+    } catch (_) {}
+  });
+  document.body.appendChild(dot);
+});
 
 // =============================================================
 //  Subjects + Library + Settings (server-persistent)
