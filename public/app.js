@@ -1613,6 +1613,20 @@ function browserSpeakReel(reelEl, idx, chunkEls) {
 
   const utt = new SpeechSynthesisUtterance(reel.narration);
   utt.rate = 1.05;
+  utt.volume = 1.0;
+  utt.pitch = 1.0;
+  // Pick a matching system voice if one is available, else let the engine
+  // default kick in. Without an explicit lang the Android WebView often
+  // picks a non-existent default and stays silent.
+  try {
+    const langCode = (navigator.language || "en-US").slice(0, 5);
+    utt.lang = langCode;
+    const allVoices = window.speechSynthesis.getVoices() || [];
+    if (allVoices.length) {
+      const match = allVoices.find((v) => v.lang && v.lang.toLowerCase().startsWith(langCode.toLowerCase().slice(0, 2)));
+      if (match) utt.voice = match;
+    }
+  } catch (_) {}
   let lastChunk = -1;
   let lastWord = -1;
   utt.onboundary = (e) => {
@@ -1651,6 +1665,7 @@ function browserSpeakReel(reelEl, idx, chunkEls) {
     }
   };
   utt.onend = () => {
+    audioDbg("device voice ended idx=" + idx);
     chunkEls.forEach((c) => c.classList.add("exiting"));
     setTimeout(() => {
       if (currentReelEl === reelEl && settings.autoAdvance !== "off") {
@@ -1659,8 +1674,33 @@ function browserSpeakReel(reelEl, idx, chunkEls) {
       }
     }, 700);
   };
-  setTimeout(() => window.speechSynthesis.speak(utt), 60);
+  utt.onstart = () => audioDbg("device voice STARTED idx=" + idx + " voice=" + (utt.voice?.name || "default") + " lang=" + utt.lang);
+  utt.onerror = (e) => audioDbg("device voice ERROR idx=" + idx + " " + (e?.error || ""));
+  // Cancel anything currently queued so we don't get a phantom backlog,
+  // then speak. The 60ms delay lets WebView settle.
+  try { window.speechSynthesis.cancel(); } catch (_) {}
+  audioDbg("device voice queue idx=" + idx);
+  setTimeout(() => {
+    try { window.speechSynthesis.speak(utt); }
+    catch (e) { audioDbg("speechSynthesis.speak threw: " + (e?.message || e)); }
+  }, 60);
 }
+
+// Warm up the voices list once at app start. On Android WebView,
+// `getVoices()` is async-populated — calling it early ensures the list
+// is non-empty by the time we need it for fallback narration.
+(function warmSpeechVoices() {
+  if (!("speechSynthesis" in window)) return;
+  try { window.speechSynthesis.getVoices(); } catch (_) {}
+  if (typeof window.speechSynthesis.onvoiceschanged !== "undefined") {
+    window.speechSynthesis.onvoiceschanged = () => {
+      try {
+        const n = (window.speechSynthesis.getVoices() || []).length;
+        if (typeof audioDbg === "function") audioDbg("voices loaded: " + n);
+      } catch (_) {}
+    };
+  }
+})();
 
 // ----- Image generation -----
 function ensureImage(idx) {
@@ -1695,6 +1735,37 @@ function ensureImage(idx) {
   return p;
 }
 
+// ----- TTS rate limiter -----
+// Gemini Flash TTS free tier is 10 req/min. We throttle to 8/min on the
+// client to leave headroom and to keep the FIRST reel's slot at the
+// front of the queue. A sliding-window of recent timestamps is used.
+// On a 503 quota response, we record the time and back off all callers
+// for 60s — during which they immediately resolve null so speakReel can
+// jump to the device-voice fallback without a useless retry.
+const TTS_BUDGET_PER_MIN = 8;
+const _ttsCalls = []; // unix ms of recent successful starts
+let _ttsQuotaBlockUntil = 0;
+
+async function ttsThrottleAcquire() {
+  while (true) {
+    const now = Date.now();
+    if (now < _ttsQuotaBlockUntil) {
+      // We've been told quota is exhausted — caller should bail to device voice
+      return false;
+    }
+    // prune anything older than 60s
+    while (_ttsCalls.length && now - _ttsCalls[0] > 60_000) _ttsCalls.shift();
+    if (_ttsCalls.length < TTS_BUDGET_PER_MIN) {
+      _ttsCalls.push(now);
+      return true;
+    }
+    // wait until the oldest call falls out of the window
+    const wait = 60_000 - (now - _ttsCalls[0]) + 50;
+    audioDbg("tts throttle wait " + wait + "ms");
+    await new Promise((r) => setTimeout(r, wait));
+  }
+}
+
 // ----- Audio generation (with per-reel voice) -----
 // Resolves to a URL on success, or null on failure (quota, network, etc.).
 // Never rejects — that way fire-and-forget prefetch can't produce unhandled
@@ -1709,40 +1780,51 @@ function ensureAudio(idx) {
   const voiceB = (settings.voiceB && settings.voiceB !== "auto") ? settings.voiceB : (reel.voiceB || "Charon");
   const format = settings.format || "solo";
 
-  audioDbg("ensureAudio idx=" + idx + " POST /api/tts");
-  const p = api("/api/tts", {
-    method: "POST",
-    body: { text: reel.narration, voice, voiceB, format },
-  })
-    .then(async (r) => {
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        const err = new Error("HTTP " + r.status + " " + (data.error || ""));
-        err.status = r.status; err.body = data;
-        throw err;
-      }
-      return data;
-    })
-    .then((data) => {
-      if (!data.url) throw new Error(data.error || "no audio");
-      audioCache.set(idx, data.url);
+  const p = (async () => {
+    const ok = await ttsThrottleAcquire();
+    if (!ok) {
+      audioDbg("ensureAudio idx=" + idx + " SKIP (quota cooldown)");
       audioInflight.delete(idx);
-      if (currentChapterId) postChapterAsset(currentChapterId, "audio", idx, data.url);
-      audioDbg("ensureAudio idx=" + idx + " OK url=" + data.url.slice(0, 40));
-      return data.url;
+      return null;
+    }
+    audioDbg("ensureAudio idx=" + idx + " POST /api/tts");
+    return api("/api/tts", {
+      method: "POST",
+      body: { text: reel.narration, voice, voiceB, format },
     })
-    .catch((e) => {
-      audioInflight.delete(idx);
-      const msg = String(e?.message || e);
-      const status = e?.status || "?";
-      audioDbg("ensureAudio idx=" + idx + " FAIL " + status + " " + msg.slice(0, 80));
-      if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg) || status === 503) {
-        console.warn("[tts] quota — falling back to device voice", msg.slice(0, 120));
-      } else {
-        console.warn("[tts] failed", msg.slice(0, 200));
-      }
-      return null; // never throw — keeps fire-and-forget callers safe
-    });
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          const err = new Error("HTTP " + r.status + " " + (data.error || ""));
+          err.status = r.status; err.body = data;
+          throw err;
+        }
+        return data;
+      })
+      .then((data) => {
+        if (!data.url) throw new Error(data.error || "no audio");
+        audioCache.set(idx, data.url);
+        audioInflight.delete(idx);
+        if (currentChapterId) postChapterAsset(currentChapterId, "audio", idx, data.url);
+        audioDbg("ensureAudio idx=" + idx + " OK url=" + data.url.slice(0, 40));
+        return data.url;
+      })
+      .catch((e) => {
+        audioInflight.delete(idx);
+        const msg = String(e?.message || e);
+        const status = e?.status || "?";
+        audioDbg("ensureAudio idx=" + idx + " FAIL " + status + " " + msg.slice(0, 80));
+        if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg) || status === 503) {
+          // Block all further TTS callers for 60s — saves them the round-trip
+          _ttsQuotaBlockUntil = Date.now() + 60_000;
+          audioDbg("tts quota block for 60s");
+          console.warn("[tts] quota — falling back to device voice", msg.slice(0, 120));
+        } else {
+          console.warn("[tts] failed", msg.slice(0, 200));
+        }
+        return null; // never throw — keeps fire-and-forget callers safe
+      });
+  })();
 
   audioInflight.set(idx, p);
   return p;
