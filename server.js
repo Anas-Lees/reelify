@@ -821,28 +821,75 @@ async function ttsGemini(text, voice) {
   return { pcm, sampleRate: rateMatch ? parseInt(rateMatch[1], 10) : 24000 };
 }
 
-// OpenAI TTS as a fallback when Gemini's preview model is rate-limited.
-// Set OPENAI_API_KEY in Render env vars to enable. Returns a fully-formed
-// WAV Buffer (not raw PCM) — OpenAI returns a complete audio container.
-//
-// Voice mapping: Gemini voice names -> roughly equivalent OpenAI voices,
-// chosen so the user's per-reel voice preference still feels consistent.
+// Google Cloud Text-to-Speech as the FIRST fallback. Same Google billing
+// account as the user's Gemini key, but a separate API with proper paid
+// rate limits (1M chars/month free Standard, 1M Wavenet, 1M Neural2).
+// Set GOOGLE_CLOUD_API_KEY in Render env (the AI Studio key may also work
+// if Cloud TTS API is enabled on the same project + the key isn't
+// restricted). Returns { pcm, sampleRate } so the caller wraps with WAV.
+const GCP_VOICE_MAP = {
+  Aoede:  "en-US-Neural2-F", // warm female
+  Puck:   "en-US-Neural2-J", // playful male
+  Charon: "en-US-Neural2-D", // deep male
+  Kore:   "en-US-Neural2-A", // neutral female
+  Leda:   "en-US-Neural2-G", // bright female
+  Fenrir: "en-US-Neural2-I", // clear male
+  Orus:   "en-US-Neural2-D", // deep male
+  Zephyr: "en-US-Neural2-C", // neutral female
+};
+async function ttsGoogleCloud(text, voice) {
+  const apiKey = process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    const e = new Error("GOOGLE_CLOUD_API_KEY not set");
+    e.code = "no-gcp-key"; throw e;
+  }
+  const gcpVoice = GCP_VOICE_MAP[voice] || "en-US-Neural2-F";
+  const r = await fetch(
+    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { text: text.slice(0, 5000) }, // Cloud TTS hard cap is 5000 bytes
+        voice: { languageCode: "en-US", name: gcpVoice },
+        audioConfig: {
+          audioEncoding: "LINEAR16",
+          sampleRateHertz: 24000,
+          speakingRate: 1.0,
+          pitch: 0.0,
+        },
+      }),
+    }
+  );
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    const err = new Error(`Google Cloud TTS HTTP ${r.status}: ${body.slice(0, 200)}`);
+    err.status = r.status; throw err;
+  }
+  const data = await r.json();
+  if (!data.audioContent) throw new Error("Google Cloud TTS returned no audioContent");
+  return { pcm: Buffer.from(data.audioContent, "base64"), sampleRate: 24000 };
+}
+
+// OpenAI TTS as the SECOND fallback when both Gemini and Google Cloud TTS
+// are unavailable. Set OPENAI_API_KEY in Render env vars to enable.
+// Returns a fully-formed WAV Buffer (not raw PCM) — OpenAI returns a
+// complete audio container.
 const OPENAI_VOICE_MAP = {
-  Aoede:  "nova",     // warm, narrator-y
-  Puck:   "fable",    // playful
-  Charon: "onyx",     // deep
-  Kore:   "alloy",    // neutral
-  Leda:   "shimmer",  // bright
-  Fenrir: "echo",     // clear
-  Orus:   "onyx",     // deep
-  Zephyr: "alloy",    // neutral
+  Aoede:  "nova",
+  Puck:   "fable",
+  Charon: "onyx",
+  Kore:   "alloy",
+  Leda:   "shimmer",
+  Fenrir: "echo",
+  Orus:   "onyx",
+  Zephyr: "alloy",
 };
 async function ttsOpenAI(text, voice) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     const e = new Error("OPENAI_API_KEY not set");
-    e.code = "no-openai-key";
-    throw e;
+    e.code = "no-openai-key"; throw e;
   }
   const oaiVoice = OPENAI_VOICE_MAP[voice] || "nova";
   const r = await fetch("https://api.openai.com/v1/audio/speech", {
@@ -854,7 +901,7 @@ async function ttsOpenAI(text, voice) {
     body: JSON.stringify({
       model: "tts-1",
       voice: oaiVoice,
-      input: text.slice(0, 4096), // OpenAI limit per call
+      input: text.slice(0, 4096),
       response_format: "wav",
     }),
   });
@@ -866,23 +913,57 @@ async function ttsOpenAI(text, voice) {
   return { wav: buf };
 }
 
-// Try Gemini first, fall back to OpenAI when Gemini is rate-limited.
-// Returns either { pcm, sampleRate } (Gemini path — caller wraps with WAV
-// header) or { wav } (OpenAI path — already a complete WAV).
+// Solo-mode TTS chain. Try in priority order:
+//   1. Gemini 2.5 Flash TTS (free quota, preview model)
+//   2. Google Cloud TTS (same Google billing, 1M chars/mo free)
+//   3. OpenAI tts-1 (paid, generous limits)
+// Each provider's quota error advances to the next; any non-quota error
+// from the chosen provider propagates so legitimate failures aren't
+// swallowed. Returns either { pcm, sampleRate } (Gemini/GCP) or { wav }
+// (OpenAI). Caller wraps PCM with a WAV header.
+const _ttsProviderSkipUntil = { gemini: 0, gcp: 0 }; // ms timestamps
+function _isQuotaErr(msg) {
+  return /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests|exceed/i.test(String(msg));
+}
 async function ttsOneSegment(text, voice) {
-  try {
-    return await ttsGemini(text, voice);
-  } catch (e) {
-    const msg = String(e?.message || e);
-    const isQuota = /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests/i.test(msg);
-    if (!isQuota) throw e;
-    if (!process.env.OPENAI_API_KEY) {
-      // No fallback configured — surface the original error
-      throw e;
+  const now = Date.now();
+  // 1. Gemini
+  if (now >= _ttsProviderSkipUntil.gemini) {
+    try {
+      return await ttsGemini(text, voice);
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (_isQuotaErr(msg)) {
+        _ttsProviderSkipUntil.gemini = now + 60_000; // 60s cooldown
+        console.log("[tts] Gemini quota — trying Google Cloud TTS");
+      } else if (e.code !== "no-gcp-key" && e.code !== "no-openai-key") {
+        // Non-quota Gemini failure — try the next provider just in case.
+        console.warn("[tts] Gemini failed (" + msg.slice(0, 100) + "), trying GCP");
+      }
     }
-    console.log("[tts] Gemini quota — falling back to OpenAI for this segment");
-    return await ttsOpenAI(text, voice);
   }
+  // 2. Google Cloud TTS
+  if (now >= _ttsProviderSkipUntil.gcp) {
+    try {
+      return await ttsGoogleCloud(text, voice);
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (e.code === "no-gcp-key") {
+        // not configured — silently move on
+      } else if (_isQuotaErr(msg)) {
+        _ttsProviderSkipUntil.gcp = now + 60_000;
+        console.log("[tts] Google Cloud TTS quota — trying OpenAI");
+      } else {
+        // GCP returned an error but isn't a quota issue (probably the
+        // API isn't enabled on the project, or the key is restricted).
+        // Mark cool-down so we don't keep paying the round-trip and try OpenAI.
+        _ttsProviderSkipUntil.gcp = now + 5 * 60_000;
+        console.warn("[tts] Google Cloud TTS failed (" + msg.slice(0, 120) + "), trying OpenAI");
+      }
+    }
+  }
+  // 3. OpenAI
+  return await ttsOpenAI(text, voice);
 }
 
 // Parse a podcast script split into [A]: / [B]: turns.
@@ -1262,12 +1343,17 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260508j",
+  fastReelLoad: "20260508k",
   ttsPrefetchSerial: true,
   ttsClientRateLimit: "8 RPM, 60s quota cooldown",
   deviceVoiceWarmedUp: true,
   chapterAssetsPersisted: true,
-  ttsFallbackProvider: process.env.OPENAI_API_KEY ? "OpenAI tts-1" : "device voice only",
+  ttsChain: [
+    "gemini-2.5-flash-preview-tts",
+    (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY) ? "google-cloud-tts (Neural2)" : null,
+    process.env.OPENAI_API_KEY ? "openai tts-1" : null,
+    "device voice (browser fallback)",
+  ].filter(Boolean),
   imageDimsLogged: true,
   prefetchWorkers: "4 image + 2 audio",
   audioUnlockNonMuted: false, // reverted — muted unlock matches the working OLD pattern

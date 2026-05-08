@@ -45,9 +45,12 @@ gh auth refresh -h github.com -s workflow
 Click that, sign in with GitHub. Render reads `render.yaml` and asks for the env vars:
 
 - **`GEMINI_API_KEY`** — your AI Studio key from https://aistudio.google.com/apikey
-- **`OPENAI_API_KEY`** — *optional but recommended.* Get one from https://platform.openai.com/api-keys. With this set, when Gemini's preview-TTS hits its ~10 RPM rate limit the server transparently falls back to OpenAI `tts-1` so your voice keeps playing. Cost: ~$0.015 per 1k chars (a 30-reel deck ≈ 4¢). **Without this key, you'll fall back to the device voice when Gemini quota runs out.**
+- **`GOOGLE_CLOUD_API_KEY`** — *optional, basically free.* If you enable the **Cloud Text-to-Speech API** in your existing Google project (https://console.cloud.google.com/apis/library/texttospeech.googleapis.com), create a Cloud API key, and paste it here, the server uses it as the **first TTS fallback** when Gemini's preview model is rate-limited. Free tier: ~1 million chars/month. Cost beyond that: $4/M (Standard) or $16/M (Wavenet) — a 30-reel deck is well under a cent. Same Google billing as your Gemini key.
+- **`OPENAI_API_KEY`** — *optional last-resort fallback.* Get one from https://platform.openai.com/api-keys. Used only if BOTH Gemini and Google Cloud TTS are unavailable. Cost: ~$0.015 per 1k chars (a 30-reel deck ≈ 4¢).
 - **`DATABASE_URL`** — the Neon connection string from step 2
 - **`JWT_SECRET`** — Render will offer to **auto-generate** a strong random one. Accept it. Reused on every redeploy so your sessions stay valid.
+
+> **TTS fallback chain**: Gemini → Google Cloud TTS → OpenAI → device voice. Each provider has a 60-second cooldown if it returns a quota error, so subsequent calls skip straight to the next provider until the cooldown expires. Set as many keys as you want — the chain skips any that aren't configured.
 
 Click **Apply**. First build takes ~3-5 min (Docker).
 

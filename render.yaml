@@ -8,11 +8,21 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false   # paste your AI Studio key in the Render dashboard
+      - key: GOOGLE_CLOUD_API_KEY
+        sync: false   # OPTIONAL but free for the first ~1M chars/month —
+                      # Google Cloud Text-to-Speech (different from Gemini
+                      # preview TTS, has proper paid quotas). Same Google
+                      # billing account. Set this to a Cloud key with the
+                      # "Cloud Text-to-Speech API" enabled. If not set, the
+                      # GEMINI_API_KEY is auto-tried (works only if your AI
+                      # Studio key isn't restricted). Cost beyond free tier:
+                      # $4 per million chars Standard ($16 for Wavenet).
       - key: OPENAI_API_KEY
-        sync: false   # OPTIONAL — paid OpenAI key used as TTS fallback when
-                      # Gemini's preview-TTS hits its ~10 RPM rate limit.
+        sync: false   # OPTIONAL — paid OpenAI key, used only if BOTH
+                      # Gemini and Google Cloud TTS are quota-blocked.
                       # Cost: ~$0.015 per 1k chars (so a 30-reel deck ≈ 4¢).
-                      # Without this key, audio falls back to device voice.
+                      # Without any TTS fallback set, audio drops to the
+                      # device voice when Gemini's quota runs out.
       - key: DATABASE_URL
         sync: false   # Neon / Supabase / any Postgres connection string
       - key: JWT_SECRET
