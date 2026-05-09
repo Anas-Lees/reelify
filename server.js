@@ -1129,6 +1129,60 @@ async function ttsEdge(text, voice) {
   });
 }
 
+// Google Translate TTS — unofficial endpoint that returns MP3.
+// Requires no auth. Per-call text limit is ~200 chars, so we split
+// long narration into sentence-sized chunks and concatenate the MP3
+// buffers (MP3 frames concatenate cleanly). Used when Edge TTS comes
+// back with zero audio (Microsoft is silently dropping SSML on
+// Render's IP range as of May 2026).
+function splitForGTTS(text, max = 180) {
+  const out = [];
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  let cur = "";
+  for (const s of sentences) {
+    if ((cur + " " + s).trim().length <= max) {
+      cur = (cur + " " + s).trim();
+    } else {
+      if (cur) out.push(cur);
+      // If a single sentence is longer than max, hard-split on commas/spaces.
+      if (s.length > max) {
+        const parts = s.split(/(?<=,)\s+|\s+/);
+        let bit = "";
+        for (const p of parts) {
+          if ((bit + " " + p).trim().length <= max) bit = (bit + " " + p).trim();
+          else { if (bit) out.push(bit); bit = p; }
+        }
+        if (bit) out.push(bit);
+      } else {
+        cur = s;
+      }
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+async function ttsGoogleTranslate(text, _voice) {
+  const chunks = splitForGTTS(text);
+  const buffers = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunks[i])}&tl=en&client=tw-ob&total=${chunks.length}&idx=${i}&textlen=${chunks[i].length}`;
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Referer": "https://translate.google.com/",
+      },
+    });
+    if (!r.ok) {
+      const body = await r.text().catch(() => "");
+      throw new Error(`Google Translate TTS HTTP ${r.status}: ${body.slice(0, 150)}`);
+    }
+    buffers.push(Buffer.from(await r.arrayBuffer()));
+  }
+  if (buffers.length === 0) throw new Error("Google Translate TTS returned no audio");
+  return { mp3: Buffer.concat(buffers) };
+}
+
 // StreamElements TTS — free, no API key, unlimited (DEPRECATED May 2026:
 // they now require an API key. Kept as a last-resort retry but in
 // practice always 401s, then falls through to Edge TTS). Quality is similar to
@@ -1163,21 +1217,32 @@ async function ttsStreamElements(text, voice) {
   return { mp3: buf };
 }
 
-// Solo-mode TTS chain — Edge TTS only.
+// Solo-mode TTS chain — only no-key free providers.
 //
-// Rationale: Edge TTS is free, unlimited, no API key, and produces
-// neural-quality voice. Every other provider we tried was either
-// rate-limited (Gemini preview), pulled their free tier
-// (StreamElements), or was paid-only (ElevenLabs/GCP/OpenAI).
+// 1. Microsoft Edge TTS  (msedge-tts package, neural voices)
+// 2. Google Translate TTS (unofficial, low-quality but reliable)
 //
-// Gemini preview-TTS is NOT in the chain. It's still used for
-// podcast (2-voice) mode where we splice raw PCM between turns.
+// Edge TTS is the preferred path because the voices are much better,
+// but on Render's shared IP range Microsoft has been silently
+// returning empty SSML responses ("Edge TTS produced no audio").
+// When that happens we fall straight to Google Translate TTS so the
+// user always hears voice — even at lower quality.
 //
-// `voiceCustom` is currently ignored in solo mode (Edge TTS doesn't
-// support voice-from-description). The setting still exists in the UI
-// for the day we wire ElevenLabs back in as an opt-in upgrade.
+// Errors include the provider name in the message so the dbg overlay
+// shows exactly which layer fell through to the next.
 async function ttsOneSegment(text, voice, _voiceCustom) {
-  return await ttsEdge(text, voice);
+  const errors = [];
+  try {
+    return await ttsEdge(text, voice);
+  } catch (e) {
+    errors.push("edge: " + (e?.message || e));
+  }
+  try {
+    return await ttsGoogleTranslate(text, voice);
+  } catch (e) {
+    errors.push("gtts: " + (e?.message || e));
+  }
+  throw new Error("All TTS providers failed — " + errors.join(" | "));
 }
 
 // Parse a podcast script split into [A]: / [B]: turns.
@@ -1617,7 +1682,7 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509j",
+  fastReelLoad: "20260509k",
   ttsErrorReasonSurfaced: true,
   edgeTtsViaMsedgeTtsPackage: true,
   ttsEdgeOnlySoloChain: true,
@@ -1634,10 +1699,12 @@ const BUILD_INFO = {
   // the always-available free default. Paid providers below are pure
   // quality upgrades the user opts into via env keys.
   ttsChain: [
-    "microsoft edge tts (free, neural voices, unlimited)",
+    "microsoft edge tts (free, neural voices)",
+    "google translate tts (free, lower quality)",
     "device voice (browser fallback)",
   ],
   ttsPrimary: "microsoft-edge-tts",
+  ttsGoogleTranslateFallback: true,
   ttsGeminiRemovedFromSoloChain: true,
   voiceDesignSupport: !!process.env.ELEVENLABS_API_KEY,
   dragRewrittenWithTouchEvents: true,
