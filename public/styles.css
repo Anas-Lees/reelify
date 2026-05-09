@@ -772,13 +772,15 @@ html[dir="rtl"] .reel-card-lang { right: auto; left: 40px; }
   inset: 0;
   display: flex;
   align-items: center;
+  align-content: center;        /* pack wrapped lines together at center, NOT stretch them across the chunk */
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.32em 0.36em;          /* row-gap 0.32em, col-gap 0.36em — comfortable line spacing */
+  row-gap: 4px;                 /* tiny breathing room between wrapped lines */
+  column-gap: 0.36em;
   text-align: center;
   font-size: 34px;
   font-weight: 800;
-  line-height: 1.42;            /* was 1.18 — gave too-tight stacking on wrapped 3-4 word chunks */
+  line-height: 1.18;            /* tight: wrapped line sits right under the previous line */
   letter-spacing: -0.015em;
   color: rgba(255,255,255,0.96);
   padding: 0 8px;
