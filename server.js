@@ -1080,7 +1080,58 @@ async function ttsElevenLabs(text, voice, voiceCustom) {
   return { mp3: buf };
 }
 
-// StreamElements TTS — free, no API key, unlimited. Quality is similar to
+// Microsoft Edge TTS — completely free, no API key, very high quality
+// (the same neural voices that power Edge's Read Aloud feature). Wraps
+// the public msedge-tts npm package which handles the WebSocket
+// protocol + the Sec-MS-GEC security header Microsoft started requiring
+// in late 2024. Returns { mp3 }. Replaces StreamElements which started
+// requiring an API key in May 2026.
+import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
+
+// Map our internal voice names → Edge Neural voice names. These are the
+// closest-timbre matches per voice we already expose to users.
+const EDGE_VOICE_MAP = {
+  Aoede:  "en-US-AriaNeural",       // warm female narrator
+  Puck:   "en-US-GuyNeural",        // playful warm male
+  Charon: "en-US-DavisNeural",      // deep, thoughtful male
+  Kore:   "en-US-JennyNeural",      // neutral female (TikTok-ish)
+  Leda:   "en-US-AvaNeural",        // bright female
+  Fenrir: "en-GB-RyanNeural",       // clear British male
+  Orus:   "en-US-TonyNeural",       // deep male
+  Zephyr: "en-US-EmmaNeural",       // neutral female
+};
+
+async function ttsEdge(text, voice) {
+  const voiceName = EDGE_VOICE_MAP[voice] || "en-US-AriaNeural";
+  const tts = new MsEdgeTTS();
+  await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+  const { audioStream } = await tts.toStream(text);
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let done = false;
+    const finish = (err, val) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeoutId);
+      err ? reject(err) : resolve(val);
+    };
+    const timeoutId = setTimeout(
+      () => finish(new Error("Edge TTS timed out after 30s")),
+      30_000
+    );
+    audioStream.on("data", (c) => chunks.push(c));
+    audioStream.on("end", () => {
+      const buf = Buffer.concat(chunks);
+      if (buf.length === 0) finish(new Error("Edge TTS produced no audio"));
+      else finish(null, { mp3: buf });
+    });
+    audioStream.on("error", (err) => finish(err));
+  });
+}
+
+// StreamElements TTS — free, no API key, unlimited (DEPRECATED May 2026:
+// they now require an API key. Kept as a last-resort retry but in
+// practice always 401s, then falls through to Edge TTS). Quality is similar to
 // Polly's Joanna/Brian voices (TikTok-ish). Returns MP3, but most browsers
 // + the HTML5 <audio> element on Capacitor WebView play MP3 fine. We
 // transcode... actually, we just save it as .mp3 and serve it; the
@@ -1115,7 +1166,7 @@ async function ttsStreamElements(text, voice) {
 // Solo-mode TTS chain.
 //   1. ElevenLabs (best quality, supports custom voice descriptions
 //      via Voice Design) — used if ELEVENLABS_API_KEY is set
-//   2. StreamElements (free, no key, unlimited — always-available default)
+//   2. Microsoft Edge TTS (FREE, no key, unlimited — neural voices)
 //   3. Google Cloud TTS  (if GOOGLE_CLOUD_API_KEY is set)
 //   4. OpenAI tts-1      (if OPENAI_API_KEY is set)
 //
@@ -1128,7 +1179,7 @@ async function ttsStreamElements(text, voice) {
 // is configured, we run Voice Design once to get a permanent voice_id
 // and reuse it for every TTS call afterwards (cached in memory by
 // description hash).
-const _ttsProviderSkipUntil = { elevenlabs: 0, streamelements: 0, gcp: 0, openai: 0 };
+const _ttsProviderSkipUntil = { elevenlabs: 0, edge: 0, gcp: 0, openai: 0 };
 function _isQuotaErr(msg) {
   return /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests|exceed/i.test(String(msg));
 }
@@ -1153,14 +1204,15 @@ async function ttsOneSegment(text, voice, voiceCustom) {
       }
     }
   }
-  // 2. StreamElements — free, unlimited, default fallback for everyone.
-  if (now >= _ttsProviderSkipUntil.streamelements) {
+  // 2. Microsoft Edge TTS — free, unlimited, neural voices, the new
+  //    always-available default for every user.
+  if (now >= _ttsProviderSkipUntil.edge) {
     try {
-      return await ttsStreamElements(text, voice);
+      return await ttsEdge(text, voice);
     } catch (e) {
       const msg = String(e?.message || e);
-      _ttsProviderSkipUntil.streamelements = now + 5 * 60_000;
-      console.warn("[tts] StreamElements failed (" + msg.slice(0, 120) + "), trying paid fallbacks");
+      _ttsProviderSkipUntil.edge = now + 60_000;
+      console.warn("[tts] Edge TTS failed (" + msg.slice(0, 120) + "), trying paid fallbacks");
     }
   }
   // 3. Google Cloud TTS (only if the user has a key set)
@@ -1193,8 +1245,8 @@ async function ttsOneSegment(text, voice, voiceCustom) {
       }
     }
   }
-  // Last-resort: retry StreamElements (transient cooldown may have expired).
-  return await ttsStreamElements(text, voice);
+  // Last-resort: retry Edge TTS (transient cooldown may have expired).
+  return await ttsEdge(text, voice);
 }
 
 // Parse a podcast script split into [A]: / [B]: turns.
@@ -1597,7 +1649,8 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509g",
+  fastReelLoad: "20260509h",
+  edgeTtsViaMsedgeTtsPackage: true,
   audioListenerAbortController: true,
   dragTouchActionFix: true,
   ttsTrimEmptyText: true,
@@ -1610,12 +1663,12 @@ const BUILD_INFO = {
   // quality upgrades the user opts into via env keys.
   ttsChain: [
     process.env.ELEVENLABS_API_KEY ? "elevenlabs + voice-design" : null,
-    "streamelements (free, no key)",
+    "microsoft edge tts (free, neural voices)",
     (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY) ? "google-cloud-tts (Neural2)" : null,
     process.env.OPENAI_API_KEY ? "openai tts-1" : null,
     "device voice (browser fallback)",
   ].filter(Boolean),
-  ttsPrimary: process.env.ELEVENLABS_API_KEY ? "elevenlabs" : "streamelements",
+  ttsPrimary: process.env.ELEVENLABS_API_KEY ? "elevenlabs" : "microsoft-edge-tts",
   ttsGeminiRemovedFromSoloChain: true,
   voiceDesignSupport: !!process.env.ELEVENLABS_API_KEY,
   dragRewrittenWithTouchEvents: true,

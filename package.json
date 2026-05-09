@@ -17,6 +17,7 @@
     "express": "^4.21.1",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
+    "msedge-tts": "^2.0.5",
     "multer": "^2.0.0",
     "officeparser": "^5.1.1",
     "pg": "^8.20.0"
