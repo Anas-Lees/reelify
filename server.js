@@ -981,11 +981,14 @@ function parsePodcastTurns(text) {
 
 app.post("/api/tts", requireAuth, async (req, res) => {
   try {
-    const { text, format } = req.body;
+    const rawText = req.body && typeof req.body.text === "string" ? req.body.text : "";
+    const text = rawText.trim();
+    const { format } = req.body || {};
     let voice = req.body.voice || TTS_VOICE;
     let voiceB = req.body.voiceB || "Charon";
     if (!ALLOWED_VOICES.has(voice)) voice = TTS_VOICE;
     if (!ALLOWED_VOICES.has(voiceB)) voiceB = "Charon";
+    // Reject empty / whitespace-only text without burning a TTS provider call.
     if (!text) return res.status(400).json({ error: "Missing text" });
 
     const isPodcast = format === "podcast";
@@ -1343,7 +1346,10 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509c",
+  fastReelLoad: "20260509d",
+  audioListenerAbortController: true,
+  dragTouchActionFix: true,
+  ttsTrimEmptyText: true,
   ttsPrefetchSerial: true,
   ttsClientRateLimit: "8 RPM, 60s quota cooldown",
   deviceVoiceWarmedUp: true,

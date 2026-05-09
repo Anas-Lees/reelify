@@ -1136,6 +1136,8 @@ function makeDraggable(el, opts = {}) {
     document.removeEventListener("pointerup", onUp);
     document.removeEventListener("pointercancel", onUp);
   }
+  // Cache the original touchAction so we can restore it after drag.
+  const originalTouchAction = el.style.touchAction || "";
   function onDown(e) {
     if (ignoreSelector && e.target.closest && e.target.closest(ignoreSelector)) return;
     activePointerId = e.pointerId;
@@ -1146,9 +1148,14 @@ function makeDraggable(el, opts = {}) {
     pressTimer = setTimeout(() => {
       pressTimer = null;
       dragMode = true;
+      // Critical for Android: tell the browser this element will NOT
+      // scroll on touch. Without this, Chromium WebView's compositor
+      // takes over the touch as a pan and our pointermove events get
+      // cancelled mid-drag — that was "drag stops after a few px".
+      el.style.touchAction = "none";
       el.classList.add("dragging");
-      try { el.setPointerCapture?.(activePointerId); } catch {}
-      try { navigator.vibrate?.(18); } catch {}
+      try { el.setPointerCapture?.(activePointerId); } catch (_) {}
+      try { navigator.vibrate?.(18); } catch (_) {}
     }, longPressMs);
     bindMoveUp();
   }
@@ -1164,7 +1171,8 @@ function makeDraggable(el, opts = {}) {
       }
       return;
     }
-    e.preventDefault();
+    // Active drag — block the browser's default pan and translate the el.
+    if (e.cancelable) e.preventDefault();
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     setTranslate(baseX + dx, baseY + dy);
@@ -1174,11 +1182,15 @@ function makeDraggable(el, opts = {}) {
     if (dragMode) {
       dragMode = false;
       el.classList.remove("dragging");
-      try { el.releasePointerCapture?.(activePointerId); } catch {}
+      el.style.touchAction = originalTouchAction;
+      try { el.releasePointerCapture?.(activePointerId); } catch (_) {}
     }
     activePointerId = null;
     unbindMoveUp();
   }
+  // touch-action: manipulation lets normal taps + the surrounding reel
+  // swipe-scroll work. We only flip to "none" once long-press fires.
+  if (!el.style.touchAction) el.style.touchAction = "manipulation";
   el.addEventListener("pointerdown", onDown);
 }
 
@@ -1449,7 +1461,17 @@ function togglePlay(reelEl) {
   }
 }
 
+// AbortController used to remove every event listener attached to the
+// current Audio in one shot when we move to a different reel. Without
+// this, listeners on the previous audio (ended, pause, play, error)
+// keep firing callbacks against the now-active reel — that was the
+// "voice breaks after scrolling" bug.
+let _audioAbort = null;
 function stopAudio() {
+  if (_audioAbort) {
+    try { _audioAbort.abort(); } catch {}
+    _audioAbort = null;
+  }
   if (currentAudio) {
     try { currentAudio.pause(); currentAudio.src = ""; } catch {}
     currentAudio = null;
@@ -1500,6 +1522,12 @@ async function speakReel(reelEl, idx) {
   // completion is recent and the page has already had a real user gesture
   // (the Generate button click).
   const audio = new Audio(audioUrl);
+  // AbortController for THIS audio's listeners. stopAudio() aborts it
+  // before the next speakReel() runs, so old reels can't fire stale
+  // callbacks against the active reel after a scroll.
+  if (_audioAbort) { try { _audioAbort.abort(); } catch {} }
+  _audioAbort = new AbortController();
+  const _abortSignal = _audioAbort.signal;
   audio.preload = "auto";
   audio.playbackRate = SPEEDS[speedIdx];
   audio.muted = isMuted;
@@ -1530,7 +1558,7 @@ async function speakReel(reelEl, idx) {
     });
   }
   if (audio.readyState >= 1) buildTiming();
-  else audio.addEventListener("loadedmetadata", buildTiming, { once: true });
+  else audio.addEventListener("loadedmetadata", buildTiming, { once: true, signal: _abortSignal });
 
   let lastChunkIdx = -1;
   let lastWordIdx = -1;
@@ -1582,6 +1610,10 @@ async function speakReel(reelEl, idx) {
   }
 
   audio.addEventListener("ended", () => {
+    // Guard: if we're not the active audio anymore (user scrolled away),
+    // do nothing — the previous reel's "ended" must not autoadvance the
+    // current one.
+    if (currentAudio !== audio) return;
     if (chunkData) {
       chunkData.forEach((c) => c.el.classList.add("exiting"));
       chunkData[chunkData.length - 1]?.el.classList.add("active");
@@ -1593,21 +1625,24 @@ async function speakReel(reelEl, idx) {
     if (segFill) segFill.style.width = "100%";
     if (activeRafId) { cancelAnimationFrame(activeRafId); activeRafId = null; }
     setTimeout(() => {
-      if (currentReelEl === reelEl && settings.autoAdvance !== "off") {
+      if (currentAudio === audio && currentReelEl === reelEl && settings.autoAdvance !== "off") {
         const next = reelEl.nextElementSibling;
         if (next) next.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }, 700);
-  });
+  }, { signal: _abortSignal });
 
   audio.addEventListener("pause", () => {
+    if (currentAudio !== audio) return;
     if (currentReelEl === reelEl && !audio.ended) reelEl.classList.add("paused");
-  });
+  }, { signal: _abortSignal });
   audio.addEventListener("play", () => {
+    if (currentAudio !== audio) return;
+    if (currentReelEl !== reelEl) return;
     reelEl.classList.remove("paused");
     reelEl.classList.remove("needs-tap");
     if (!activeRafId) tick();
-  });
+  }, { signal: _abortSignal });
 
   // If the audio file 404s, the codec isn't supported, or anything else makes
   // the <audio> element fail, silently switch to the device voice.
@@ -1625,15 +1660,19 @@ async function speakReel(reelEl, idx) {
       browserSpeakReel(reelEl, idx, chunkEls);
     }
   }
-  audio.addEventListener("error", () => fallbackToBrowserVoice("error event"));
+  audio.addEventListener("error", () => {
+    if (currentAudio !== audio) return;
+    fallbackToBrowserVoice("error event");
+  }, { signal: _abortSignal });
   audio.addEventListener("stalled", () => {
+    if (currentAudio !== audio) return;
     // Give the network a few seconds before giving up
     setTimeout(() => {
-      if (!fellBack && audio.readyState < 2 && currentReelEl === reelEl) {
+      if (!fellBack && audio.readyState < 2 && currentAudio === audio && currentReelEl === reelEl) {
         fallbackToBrowserVoice("stalled");
       }
     }, 8000);
-  });
+  }, { signal: _abortSignal });
 
   try {
     await audio.play();
@@ -2879,9 +2918,11 @@ csBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   const i = CAPTION_SIZES.indexOf(captionSize);
   captionSize = CAPTION_SIZES[(i + 1) % CAPTION_SIZES.length];
-  try { localStorage.setItem("reelify-cs", captionSize); } catch {}
+  try { localStorage.setItem("reelify-cs", captionSize); } catch (_) {}
   applyCaptionSize();
   updateCsBtn();
+  showToast("Captions: " + captionSize);
+  sfx("boop"); haptic(8);
 });
 
 // Share narration (Web Share API + clipboard fallback)
