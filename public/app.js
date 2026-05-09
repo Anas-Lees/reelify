@@ -1321,8 +1321,9 @@ function paintReelImage(reelEl, reelIdx) {
   const bg = reelEl.querySelector(".reel-bg");
   if (!bg) return;
 
-  // Apply a URL straight to the bg element. Browser HTTP cache makes the
-  // second paint instant; no need for a hidden <img> preload step.
+  // Apply a URL straight to the bg element. Browser begins fetching as
+  // soon as we set background-image, so no hidden <img> probe is needed
+  // to "wait" before painting — the browser handles paint-on-arrive.
   function apply(url) {
     if (!url || !reelEl.isConnected) return;
     if (reelEl.dataset.imgPainted === url) return; // already showing this URL
@@ -1344,25 +1345,30 @@ function paintReelImage(reelEl, reelIdx) {
     return;
   }
 
-  // Slow path — kick off generation if not already in flight; paint when ready.
+  // Slow path — kick off generation if not already in flight; paint when
+  // the URL is back. We DO NOT check currentReelEl !== reelEl here:
+  // even if the user has scrolled away, painting the bg now means when
+  // they scroll back the image is already there. We also DO NOT wait
+  // for a hidden <img> preload — that was making the first reel feel
+  // slow. The browser starts fetching the moment we set background-image.
   ensureImage(reelIdx).then((url) => {
-    if (!url || currentReelEl !== reelEl) return;
-    // Self-heal stale URLs (e.g. saved reels pointing at a wiped
-    // /generated-images path after a Render redeploy). Hidden <img> probe
-    // with a short timeout — if the URL 404s, drop the cache and try once
-    // more. If even that fails, bail silently (placeholder stays).
+    if (!url) return;
+    apply(url);
+
+    // Background 404 self-heal — runs in parallel with the browser's
+    // own paint. If the URL 404s (saved-reel bytes wiped after redeploy),
+    // we drop the cache and regenerate once. The placeholder is shown
+    // again briefly while the fresh URL loads.
     const probe = new Image();
-    let settled = false;
-    probe.onload = () => { if (settled) return; settled = true; apply(url); };
     probe.onerror = () => {
-      if (settled) return;
-      settled = true;
-      imageCache.delete(reelIdx);
-      imageInflight.delete(reelIdx);
       if (reelEl.dataset.imgRetried === "1") return;
       reelEl.dataset.imgRetried = "1";
+      imageCache.delete(reelIdx);
+      imageInflight.delete(reelIdx);
+      delete reelEl.dataset.imgPainted;
+      bg.classList.add("placeholder");
       ensureImage(reelIdx).then((freshUrl) => {
-        if (freshUrl && currentReelEl === reelEl) apply(freshUrl);
+        if (freshUrl && reelEl.isConnected) apply(freshUrl);
       });
     };
     probe.src = url;

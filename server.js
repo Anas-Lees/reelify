@@ -535,6 +535,36 @@ function findReelsArrayStart(buffer) {
   const m = buffer.match(/"reels"\s*:\s*\[/);
   return m ? m.index + m[0].length : -1;
 }
+
+// Pull the `"quiz": [...]` array out of a possibly-truncated JSON buffer.
+// Used when JSON.parse on the full buffer fails (model output cut short
+// or trailing whitespace) but the quiz array itself was fully streamed.
+function extractQuizArray(buffer) {
+  const m = buffer.match(/"quiz"\s*:\s*\[/);
+  if (!m) return null;
+  const start = m.index + m[0].length - 1; // index of [
+  let depth = 0, i = start, inString = false, escape = false;
+  while (i < buffer.length) {
+    const c = buffer[i];
+    if (escape) { escape = false; i++; continue; }
+    if (inString) {
+      if (c === "\\") escape = true;
+      else if (c === '"') inString = false;
+      i++; continue;
+    }
+    if (c === '"') { inString = true; i++; continue; }
+    if (c === "[") depth++;
+    else if (c === "]") {
+      depth--;
+      if (depth === 0) {
+        try { return JSON.parse(buffer.slice(start, i + 1)); }
+        catch { return null; }
+      }
+    }
+    i++;
+  }
+  return null;
+}
 function extractCompleteReels(buffer, fromIdx) {
   let i = fromIdx, depth = 0, inString = false, escape = false, reelStart = -1;
   let advancedTo = fromIdx;
@@ -652,7 +682,21 @@ app.post("/api/upload-stream", requireAuth, upload.single("file"), async (req, r
         emitted++;
       }
     }
-    if (final?.quiz?.length) send("quiz", { quiz: final.quiz });
+
+    // Quiz fallback: if the full-buffer parse failed (or the model truncated
+    // its output before the closing `}`), the quiz array might still be
+    // fully present in the raw buffer. Pull it out with a depth-tracking
+    // scan so we still emit it.
+    let quiz = (final && Array.isArray(final.quiz)) ? final.quiz : null;
+    if (!quiz || quiz.length === 0) {
+      const extracted = extractQuizArray(buffer);
+      if (extracted && extracted.length) {
+        quiz = extracted;
+        console.log(`[stream] recovered ${extracted.length} quiz questions from incomplete JSON`);
+      }
+    }
+    if (quiz && quiz.length) send("quiz", { quiz });
+    else console.log(`[stream] no quiz emitted (final=${!!final}, finalQuizLen=${final?.quiz?.length ?? 0}, bufferLen=${buffer.length})`);
     if (final?.title) send("title", { title: final.title });
 
     // Persist as chapter if subject was selected
@@ -666,7 +710,7 @@ app.post("/api/upload-stream", requireAuth, upload.single("file"), async (req, r
             subjectId,
             title: chapterTitle,
             reels: final.reels,
-            quiz: final.quiz || [],
+            quiz: quiz || final.quiz || [], // use recovered quiz if full-parse missed it
             settings,
             fileName: req.file.originalname,
           });
@@ -913,15 +957,48 @@ async function ttsOpenAI(text, voice) {
   return { wav: buf };
 }
 
+// StreamElements TTS — free, no API key, unlimited. Quality is similar to
+// Polly's Joanna/Brian voices (TikTok-ish). Returns MP3, but most browsers
+// + the HTML5 <audio> element on Capacitor WebView play MP3 fine. We
+// transcode... actually, we just save it as .mp3 and serve it; the
+// caller's content-type is figured out by file extension. To keep the
+// rest of the pipeline simple (which expects .wav files), we save .mp3
+// and return a URL pointing at it.
+const SE_VOICE_MAP = {
+  Aoede:  "Joanna",   // warm female (US)
+  Puck:   "Justin",   // playful male (US)
+  Charon: "Matthew",  // deep male (US)
+  Kore:   "Salli",    // neutral female (US)
+  Leda:   "Kimberly", // bright female (US)
+  Fenrir: "Brian",    // clear male (UK)
+  Orus:   "Russell",  // deep male
+  Zephyr: "Amy",      // neutral female (UK)
+};
+async function ttsStreamElements(text, voice) {
+  const seVoice = SE_VOICE_MAP[voice] || "Joanna";
+  // StreamElements TTS endpoint — free, no auth required.
+  const url = `https://api.streamelements.com/kappa/v2/speech?voice=${encodeURIComponent(seVoice)}&text=${encodeURIComponent(text.slice(0, 1000))}`;
+  const r = await fetch(url, { method: "GET" });
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    throw new Error(`StreamElements TTS HTTP ${r.status}: ${body.slice(0, 200)}`);
+  }
+  const buf = Buffer.from(await r.arrayBuffer());
+  // It's MP3, but the rest of the pipeline writes .wav files. We return
+  // { mp3 } and the caller picks the right extension.
+  return { mp3: buf };
+}
+
 // Solo-mode TTS chain. Try in priority order:
 //   1. Gemini 2.5 Flash TTS (free quota, preview model)
 //   2. Google Cloud TTS (same Google billing, 1M chars/mo free)
 //   3. OpenAI tts-1 (paid, generous limits)
+//   4. StreamElements (free, no key, unlimited — TikTok-ish voices)
 // Each provider's quota error advances to the next; any non-quota error
 // from the chosen provider propagates so legitimate failures aren't
-// swallowed. Returns either { pcm, sampleRate } (Gemini/GCP) or { wav }
-// (OpenAI). Caller wraps PCM with a WAV header.
-const _ttsProviderSkipUntil = { gemini: 0, gcp: 0 }; // ms timestamps
+// swallowed. Returns either { pcm, sampleRate } (Gemini/GCP), { wav }
+// (OpenAI) or { mp3 } (StreamElements). Caller picks the right extension.
+const _ttsProviderSkipUntil = { gemini: 0, gcp: 0, openai: 0 }; // ms timestamps
 function _isQuotaErr(msg) {
   return /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests|exceed/i.test(String(msg));
 }
@@ -963,7 +1040,22 @@ async function ttsOneSegment(text, voice) {
     }
   }
   // 3. OpenAI
-  return await ttsOpenAI(text, voice);
+  if (now >= _ttsProviderSkipUntil.openai && process.env.OPENAI_API_KEY) {
+    try {
+      return await ttsOpenAI(text, voice);
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (_isQuotaErr(msg)) {
+        _ttsProviderSkipUntil.openai = now + 60_000;
+        console.log("[tts] OpenAI quota — trying StreamElements (free fallback)");
+      } else if (e.code !== "no-openai-key") {
+        _ttsProviderSkipUntil.openai = now + 5 * 60_000;
+        console.warn("[tts] OpenAI failed (" + msg.slice(0, 120) + "), trying StreamElements");
+      }
+    }
+  }
+  // 4. StreamElements — free, no key, always available.
+  return await ttsStreamElements(text, voice);
 }
 
 // Parse a podcast script split into [A]: / [B]: turns.
@@ -994,14 +1086,19 @@ app.post("/api/tts", requireAuth, async (req, res) => {
     const isPodcast = format === "podcast";
     const cacheKey = `${text}|${voice}|${isPodcast ? `pod|${voiceB}` : "solo"}`;
     const hash = crypto.createHash("md5").update(cacheKey).digest("hex").slice(0, 16);
-    const filename = `tts_${hash}.wav`;
-    const filepath = path.join(audioDir, filename);
-
-    if (fs.existsSync(filepath)) {
-      return res.json({ url: `/audio/${filename}`, cached: true });
+    // Cache check: an existing wav OR mp3 with this hash means we already
+    // generated this audio — return the cached file.
+    for (const ext of ["wav", "mp3"]) {
+      const cachedPath = path.join(audioDir, `tts_${hash}.${ext}`);
+      if (fs.existsSync(cachedPath)) {
+        return res.json({ url: `/audio/tts_${hash}.${ext}`, cached: true });
+      }
     }
+    const wavFilepath = path.join(audioDir, `tts_${hash}.wav`);
+    const mp3Filepath = path.join(audioDir, `tts_${hash}.mp3`);
 
     let wavBuffer;
+    let mp3Buffer;
 
     if (isPodcast) {
       // Try to parse turns. If the model didn't tag, fall back to alternating split by sentence.
@@ -1026,20 +1123,30 @@ app.post("/api/tts", requireAuth, async (req, res) => {
       }
       wavBuffer = pcmToWav(Buffer.concat(pcmParts), sampleRate);
     } else {
-      // Solo mode supports the full Gemini -> OpenAI fallback chain.
+      // Solo mode supports the full TTS fallback chain.
       const seg = await ttsOneSegment(text, voice);
-      if (seg.wav) {
+      if (seg.mp3) {
+        // StreamElements path — MP3 (no transcoding, browsers play it fine)
+        mp3Buffer = seg.mp3;
+      } else if (seg.wav) {
         // OpenAI path — already a complete WAV file
         wavBuffer = seg.wav;
       } else {
-        // Gemini path — wrap PCM with a WAV header
+        // Gemini / Cloud TTS path — wrap PCM with a WAV header
         wavBuffer = pcmToWav(seg.pcm, seg.sampleRate);
       }
     }
 
-    fs.writeFileSync(filepath, wavBuffer);
+    let outFilename;
+    if (mp3Buffer) {
+      fs.writeFileSync(mp3Filepath, mp3Buffer);
+      outFilename = `tts_${hash}.mp3`;
+    } else {
+      fs.writeFileSync(wavFilepath, wavBuffer);
+      outFilename = `tts_${hash}.wav`;
+    }
 
-    res.json({ url: `/audio/${filename}`, cached: false });
+    res.json({ url: `/audio/${outFilename}`, cached: false });
   } catch (e) {
     console.error("TTS error:", e?.message || e);
     const msg = String(e?.message || "");
@@ -1346,7 +1453,7 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509d",
+  fastReelLoad: "20260509e",
   audioListenerAbortController: true,
   dragTouchActionFix: true,
   ttsTrimEmptyText: true,
@@ -1358,6 +1465,7 @@ const BUILD_INFO = {
     "gemini-2.5-flash-preview-tts",
     (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY) ? "google-cloud-tts (Neural2)" : null,
     process.env.OPENAI_API_KEY ? "openai tts-1" : null,
+    "streamelements (free, no key)",
     "device voice (browser fallback)",
   ].filter(Boolean),
   imageDimsLogged: true,
