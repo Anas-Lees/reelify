@@ -10,17 +10,20 @@ services:
         sync: false   # required — used for text generation (reels, quiz)
                       # and image generation. NOT used for TTS anymore;
                       # the preview-TTS rate limits made it unusable.
+      - key: ELEVENLABS_API_KEY
+        sync: false   # OPTIONAL UPGRADE — best-quality TTS with Voice
+                      # Design (turn a free-text description like "warm
+                      # female narrator with a slight British accent"
+                      # into a real voice). Free tier: 10k chars/mo.
+                      # Get a key at elevenlabs.io.
       - key: GOOGLE_CLOUD_API_KEY
-        sync: false   # OPTIONAL UPGRADE — better-quality TTS (Neural2
-                      # voices). 1M chars/mo free, then $4/M Standard.
-                      # Need to enable "Cloud Text-to-Speech API" on your
-                      # Google Cloud project. Without this key, audio
-                      # uses StreamElements (free, no quota) by default.
+        sync: false   # OPTIONAL UPGRADE — Neural2 voices. 1M chars/mo
+                      # free, then $4/M. Enable "Cloud Text-to-Speech
+                      # API" on your Google Cloud project.
       - key: OPENAI_API_KEY
-        sync: false   # OPTIONAL UPGRADE — best-quality TTS (tts-1,
-                      # nova/onyx voices). $0.015 per 1k chars. Used only
-                      # if Google Cloud TTS isn't configured / unavailable.
-                      # Without this key, audio uses StreamElements (free).
+        sync: false   # OPTIONAL UPGRADE — tts-1 (nova/onyx). $0.015/1k
+                      # chars. Used as a fallback if other paid keys are
+                      # quota-exhausted.
       - key: DATABASE_URL
         sync: false   # Neon / Supabase / any Postgres connection string
       - key: JWT_SECRET

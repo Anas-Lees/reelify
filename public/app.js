@@ -113,6 +113,12 @@ const DEFAULT_SETTINGS = {
   imageStyleCustom: "",
   quizDifficultyCustom: "",
   languageCustom: "",
+  // Free-text voice description used by ElevenLabs Voice Design
+  // ("warm female narrator with a slight British accent"). Empty
+  // string => fall back to the named preset voice. Field name matches
+  // the existing `voiceOverride` chip group so the auto-toggle logic
+  // (customInputFor / .cu-custom-input[data-name=...]) works for free.
+  voiceOverrideCustom: "",
 };
 let settings = { ...DEFAULT_SETTINGS };
 try {
@@ -1111,13 +1117,14 @@ function escapeHtml(s) {
 // the element) so the drag continues even when the finger moves off
 // the element — fixes "the note only moves a little".
 function makeDraggable(el, opts = {}) {
-  const longPressMs = opts.longPressMs ?? 220;
+  const longPressMs = opts.longPressMs ?? 150;
   const ignoreSelector = opts.ignoreSelector || null;
   let pressTimer = null;
   let dragMode = false;
   let startX = 0, startY = 0;
   let baseX = 0, baseY = 0;
-  let activePointerId = null;
+  let activeId = null;
+  let isTouch = false;
 
   function readTranslate() {
     const m = (el.style.transform || "").match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
@@ -1126,72 +1133,98 @@ function makeDraggable(el, opts = {}) {
   function setTranslate(x, y) {
     el.style.transform = `translate(${x}px, ${y}px)`;
   }
-  function bindMoveUp() {
-    document.addEventListener("pointermove", onMove, { passive: false });
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onUp);
-  }
-  function unbindMoveUp() {
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-    document.removeEventListener("pointercancel", onUp);
-  }
-  // Cache the original touchAction so we can restore it after drag.
-  const originalTouchAction = el.style.touchAction || "";
-  function onDown(e) {
+
+  // -- Touch path (Android Chromium WebView) --------------------------
+  // We use raw `touchstart`/`touchmove`/`touchend` instead of pointer
+  // events because pointer events get cancelled by the compositor as
+  // soon as it decides the touch is a vertical pan. Touch events still
+  // fire and we can preventDefault on them once dragMode is on.
+  function onTouchStart(e) {
     if (ignoreSelector && e.target.closest && e.target.closest(ignoreSelector)) return;
-    activePointerId = e.pointerId;
-    startX = e.clientX;
-    startY = e.clientY;
-    const t = readTranslate();
-    baseX = t.x; baseY = t.y;
+    if (e.touches.length !== 1) return;
+    isTouch = true;
+    const t = e.touches[0];
+    activeId = t.identifier;
+    startX = t.clientX; startY = t.clientY;
+    const cur = readTranslate();
+    baseX = cur.x; baseY = cur.y;
     pressTimer = setTimeout(() => {
       pressTimer = null;
       dragMode = true;
-      // Critical for Android: tell the browser this element will NOT
-      // scroll on touch. Without this, Chromium WebView's compositor
-      // takes over the touch as a pan and our pointermove events get
-      // cancelled mid-drag — that was "drag stops after a few px".
-      el.style.touchAction = "none";
       el.classList.add("dragging");
-      try { el.setPointerCapture?.(activePointerId); } catch (_) {}
       try { navigator.vibrate?.(18); } catch (_) {}
     }, longPressMs);
-    bindMoveUp();
   }
-  function onMove(e) {
+  function findTouch(e) {
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === activeId) return e.touches[i];
+    }
+    return null;
+  }
+  function onTouchMove(e) {
+    const t = findTouch(e); if (!t) return;
     if (!dragMode) {
-      // If the user moves significantly before long-press fires, treat it
-      // as a normal swipe — cancel the drag attempt entirely so the reel
-      // can scroll/swipe past it.
-      const dx = e.clientX - startX, dy = e.clientY - startY;
+      const dx = t.clientX - startX, dy = t.clientY - startY;
       if (Math.hypot(dx, dy) > 12) {
         if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-        unbindMoveUp();
       }
       return;
     }
-    // Active drag — block the browser's default pan and translate the el.
+    // Active drag — block the browser default and translate.
     if (e.cancelable) e.preventDefault();
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    setTranslate(baseX + dx, baseY + dy);
+    setTranslate(baseX + (t.clientX - startX), baseY + (t.clientY - startY));
   }
-  function onUp() {
+  function onTouchEnd() {
     if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
     if (dragMode) {
       dragMode = false;
       el.classList.remove("dragging");
-      el.style.touchAction = originalTouchAction;
-      try { el.releasePointerCapture?.(activePointerId); } catch (_) {}
     }
-    activePointerId = null;
-    unbindMoveUp();
+    activeId = null;
   }
-  // touch-action: manipulation lets normal taps + the surrounding reel
-  // swipe-scroll work. We only flip to "none" once long-press fires.
-  if (!el.style.touchAction) el.style.touchAction = "manipulation";
-  el.addEventListener("pointerdown", onDown);
+
+  // -- Mouse path (desktop) -------------------------------------------
+  function onMouseDown(e) {
+    if (e.button !== 0) return;
+    if (ignoreSelector && e.target.closest && e.target.closest(ignoreSelector)) return;
+    if (isTouch) return; // touch handler already handled it
+    startX = e.clientX; startY = e.clientY;
+    const cur = readTranslate();
+    baseX = cur.x; baseY = cur.y;
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      dragMode = true;
+      el.classList.add("dragging");
+    }, longPressMs);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+  function onMouseMove(e) {
+    if (!dragMode) {
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (Math.hypot(dx, dy) > 12) {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      }
+      return;
+    }
+    setTranslate(baseX + (e.clientX - startX), baseY + (e.clientY - startY));
+  }
+  function onMouseUp() {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    if (dragMode) {
+      dragMode = false;
+      el.classList.remove("dragging");
+    }
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+  }
+
+  // Bind. touchmove must be { passive: false } so preventDefault works.
+  el.addEventListener("touchstart", onTouchStart, { passive: true });
+  el.addEventListener("touchmove",  onTouchMove,  { passive: false });
+  el.addEventListener("touchend",   onTouchEnd);
+  el.addEventListener("touchcancel",onTouchEnd);
+  el.addEventListener("mousedown", onMouseDown);
 }
 
 function makeCardDraggable(cardEl) {
@@ -1888,9 +1921,23 @@ function ensureAudio(idx) {
     return Promise.resolve(null);
   }
 
-  const voice = (settings.voiceOverride && settings.voiceOverride !== "auto") ? settings.voiceOverride : reel.voice;
+  // "auto" → use the per-reel voice the AI suggested. "custom" → fall
+  // through to the preset voice for the named-voice tier (server uses
+  // voiceCustom for ElevenLabs Voice Design when present).
+  const voiceOverride = settings.voiceOverride;
+  const voice = (voiceOverride && voiceOverride !== "auto" && voiceOverride !== "custom")
+    ? voiceOverride
+    : reel.voice;
   const voiceB = (settings.voiceB && settings.voiceB !== "auto") ? settings.voiceB : (reel.voiceB || "Charon");
   const format = settings.format || "solo";
+  // Free-text voice description ("warm female narrator, slight British
+  // accent"). Server's ElevenLabs path uses Voice Design to turn this
+  // into a permanent voice on the fly. Empty string = use the named
+  // preset above instead. Only sent when voiceOverride === "custom".
+  const useVoiceCustom = settings.voiceOverride === "custom";
+  const voiceCustom = useVoiceCustom
+    ? (settings.voiceOverrideCustom || "").trim().slice(0, 240)
+    : "";
 
   const p = (async () => {
     const ok = await ttsThrottleAcquire();
@@ -1902,7 +1949,7 @@ function ensureAudio(idx) {
     audioDbg("ensureAudio idx=" + idx + " POST /api/tts");
     return api("/api/tts", {
       method: "POST",
-      body: { text: narrationText, voice, voiceB, format },
+      body: { text: narrationText, voice, voiceB, format, voiceCustom },
     })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));

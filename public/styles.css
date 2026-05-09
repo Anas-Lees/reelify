@@ -755,6 +755,11 @@ h1 {
   margin: 14px auto 12px;
   padding: 16px 18px;
   max-width: 100%;
+  /* Tell the Android Chromium WebView the card is JS-handled; without
+     this the compositor takes over the touch as a vertical pan and our
+     touchmove events get cancelled mid-drag. The card is small enough
+     that users can still swipe outside it to scroll between reels. */
+  touch-action: none;
   background: rgba(15, 15, 22, 0.78);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
   backdrop-filter: blur(18px) saturate(1.2);
@@ -905,10 +910,10 @@ body[data-caption-size="large"]  .reel.has-card .caption-chunk { font-size: 28px
   justify-content: center;
   overflow: visible;            /* allow drag past stage edge */
   margin: 8px 0 36px;
-  /* Touch behavior: stage swallows pointer events on the chunk itself
-     so the caption is draggable by anywhere inside it (we'll add the
-     handler in JS). The reel still scrolls vertically because the
-     inner chunk uses pointer-events:none until grabbed. */
+  /* Allow vertical pan (swipe between reels) by default. Once long-press
+     fires our touch handler calls preventDefault on touchmove so the
+     pan stops and drag takes over. */
+  touch-action: pan-y;
   pointer-events: auto;
   /* Pre-shift the visible mid-point of captions toward the lower third
      of the available space — feels like Instagram, not centered text. */

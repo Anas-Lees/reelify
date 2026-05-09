@@ -957,6 +957,129 @@ async function ttsOpenAI(text, voice) {
   return { wav: buf };
 }
 
+// ElevenLabs TTS — best quality, supports custom voices designed from a
+// free-text description (e.g. "warm female narrator with a slight British
+// accent"). Set ELEVENLABS_API_KEY in env. Returns { mp3 }.
+//
+// Voice mapping for the existing per-reel voice names → ElevenLabs default
+// voice IDs. Picked to roughly match the timbre of the original Gemini
+// Aoede/Puck/etc.
+const EL_VOICE_MAP = {
+  Aoede:  "21m00Tcm4TlvDq8ikWAM", // Rachel — warm female narrator
+  Puck:   "ErXwobaYiN019PkySvjV", // Antoni — playful warm male
+  Charon: "pNInz6obpgDQGcFmaJgB", // Adam — deep male
+  Kore:   "EXAVITQu4vr4xnSDxMaL", // Bella/Sarah — gentle female
+  Leda:   "XB0fDUnXU5powFXDhCwa", // Charlotte — bright female
+  Fenrir: "onwK4e9ZLuTAKqWW03F9", // Daniel — clear British male
+  Orus:   "pNInz6obpgDQGcFmaJgB", // Adam (re-use)
+  Zephyr: "21m00Tcm4TlvDq8ikWAM", // Rachel (re-use)
+};
+
+// In-memory cache: voice description text -> ElevenLabs voice_id.
+// Voice Design is expensive (a generation + a save), so once the user
+// picks a description we never want to design it again.
+const _elDesignCache = new Map();
+const EL_TTS_MODEL = "eleven_multilingual_v2"; // best quality narration
+
+// Step A+B of Voice Design: take a free-text voice description and
+// return a permanent voice_id usable in /v1/text-to-speech.
+async function elDesignVoice(apiKey, voiceDescription) {
+  const key = String(voiceDescription || "").trim();
+  if (!key) return null;
+  if (_elDesignCache.has(key)) return _elDesignCache.get(key);
+
+  // Step A: design previews. We let the API auto-generate sample text so
+  // the user only has to provide the voice description.
+  const designRes = await fetch("https://api.elevenlabs.io/v1/text-to-voice/design", {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      voice_description: key,
+      auto_generate_text: true,
+      model_id: "eleven_multilingual_ttv_v2",
+    }),
+  });
+  if (!designRes.ok) {
+    const body = await designRes.text().catch(() => "");
+    throw new Error(`ElevenLabs design HTTP ${designRes.status}: ${body.slice(0, 200)}`);
+  }
+  const designData = await designRes.json();
+  const preview = designData?.previews?.[0];
+  if (!preview?.generated_voice_id) {
+    throw new Error("ElevenLabs design returned no preview");
+  }
+
+  // Step B: save the chosen preview as a permanent voice.
+  const saveRes = await fetch("https://api.elevenlabs.io/v1/text-to-voice", {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      voice_name: `EduShorts ${key.slice(0, 40)}`,
+      voice_description: key,
+      generated_voice_id: preview.generated_voice_id,
+    }),
+  });
+  if (!saveRes.ok) {
+    const body = await saveRes.text().catch(() => "");
+    throw new Error(`ElevenLabs save-voice HTTP ${saveRes.status}: ${body.slice(0, 200)}`);
+  }
+  const saveData = await saveRes.json();
+  const voiceId = saveData?.voice_id;
+  if (!voiceId) throw new Error("ElevenLabs save-voice returned no voice_id");
+
+  _elDesignCache.set(key, voiceId);
+  return voiceId;
+}
+
+async function ttsElevenLabs(text, voice, voiceCustom) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    const e = new Error("ELEVENLABS_API_KEY not set");
+    e.code = "no-elevenlabs-key"; throw e;
+  }
+  // Pick the voice: custom description takes priority, else the
+  // per-reel preset, else fall back to Rachel.
+  let voiceId;
+  if (voiceCustom && voiceCustom.trim()) {
+    voiceId = await elDesignVoice(apiKey, voiceCustom);
+  }
+  if (!voiceId) voiceId = EL_VOICE_MAP[voice] || EL_VOICE_MAP.Aoede;
+
+  const r = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: EL_TTS_MODEL,
+        voice_settings: { stability: 0.42, similarity_boost: 0.75, style: 0.15 },
+      }),
+    }
+  );
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    const err = new Error(`ElevenLabs TTS HTTP ${r.status}: ${body.slice(0, 200)}`);
+    err.status = r.status;
+    // 401 with "quota" body is how ElevenLabs reports quota exhausted.
+    if (r.status === 401 && /quota/i.test(body)) err.quota = true;
+    if (r.status === 429) err.quota = true;
+    throw err;
+  }
+  const buf = Buffer.from(await r.arrayBuffer());
+  return { mp3: buf };
+}
+
 // StreamElements TTS — free, no API key, unlimited. Quality is similar to
 // Polly's Joanna/Brian voices (TikTok-ish). Returns MP3, but most browsers
 // + the HTML5 <audio> element on Capacitor WebView play MP3 fine. We
@@ -989,44 +1112,58 @@ async function ttsStreamElements(text, voice) {
   return { mp3: buf };
 }
 
-// Solo-mode TTS chain. StreamElements is the primary because it's free,
-// has no API key, no per-minute quota, and never returns the
-// 429/RESOURCE_EXHAUSTED chatter the user kept seeing on Gemini's
-// preview-TTS model. Paid providers are kept as upgrades only — and
-// only used when the user has opted in by setting their API key.
+// Solo-mode TTS chain.
+//   1. ElevenLabs (best quality, supports custom voice descriptions
+//      via Voice Design) — used if ELEVENLABS_API_KEY is set
+//   2. StreamElements (free, no key, unlimited — always-available default)
+//   3. Google Cloud TTS  (if GOOGLE_CLOUD_API_KEY is set)
+//   4. OpenAI tts-1      (if OPENAI_API_KEY is set)
 //
-// Order:
-//   1. StreamElements (free, no key, unlimited — TikTok-ish voices)
-//   2. Google Cloud TTS  (if GOOGLE_CLOUD_API_KEY is set — better quality)
-//   3. OpenAI tts-1      (if OPENAI_API_KEY is set — best quality)
+// Gemini preview-TTS is NOT in the chain because its rate limit is
+// unfixable by paid tier. It's still used for podcast (2-voice) mode
+// where we splice raw PCM between turns.
 //
-// Gemini preview-TTS is intentionally NOT in the solo chain anymore
-// because its rate limits are unfixable by paid tier. It's still used
-// for podcast (2-voice) mode where we splice raw PCM between turns.
-//
-// Each provider's quota / non-quota error advances to the next.
-// Returns either { mp3 } (StreamElements), { pcm, sampleRate } (GCP),
-// or { wav } (OpenAI). Caller picks the right extension.
-const _ttsProviderSkipUntil = { streamelements: 0, gcp: 0, openai: 0 };
+// `voiceCustom` is a free-text voice description like "warm female
+// narrator with a slight British accent" — when provided AND ElevenLabs
+// is configured, we run Voice Design once to get a permanent voice_id
+// and reuse it for every TTS call afterwards (cached in memory by
+// description hash).
+const _ttsProviderSkipUntil = { elevenlabs: 0, streamelements: 0, gcp: 0, openai: 0 };
 function _isQuotaErr(msg) {
   return /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests|exceed/i.test(String(msg));
 }
-async function ttsOneSegment(text, voice) {
+async function ttsOneSegment(text, voice, voiceCustom) {
   const now = Date.now();
-  // 1. StreamElements — free, unlimited, default for everyone.
+  // 1. ElevenLabs (only if the user has a key set)
+  if (now >= _ttsProviderSkipUntil.elevenlabs && process.env.ELEVENLABS_API_KEY) {
+    try {
+      return await ttsElevenLabs(text, voice, voiceCustom);
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (e.code === "no-elevenlabs-key") {
+        // not configured — silently move on
+      } else if (e.quota || _isQuotaErr(msg)) {
+        _ttsProviderSkipUntil.elevenlabs = now + 5 * 60_000;
+        console.log("[tts] ElevenLabs quota — falling back to StreamElements");
+      } else {
+        // Non-quota failure — back off for 5 minutes so we don't keep
+        // retrying a broken request shape / wrong voice_id.
+        _ttsProviderSkipUntil.elevenlabs = now + 5 * 60_000;
+        console.warn("[tts] ElevenLabs failed (" + msg.slice(0, 200) + "), trying StreamElements");
+      }
+    }
+  }
+  // 2. StreamElements — free, unlimited, default fallback for everyone.
   if (now >= _ttsProviderSkipUntil.streamelements) {
     try {
       return await ttsStreamElements(text, voice);
     } catch (e) {
       const msg = String(e?.message || e);
-      // StreamElements rarely fails. If it does (network blip / they
-      // change the endpoint), 5-minute cooldown then try the paid
-      // upgrades if the user has them configured.
       _ttsProviderSkipUntil.streamelements = now + 5 * 60_000;
       console.warn("[tts] StreamElements failed (" + msg.slice(0, 120) + "), trying paid fallbacks");
     }
   }
-  // 2. Google Cloud TTS (only if the user has a key set)
+  // 3. Google Cloud TTS (only if the user has a key set)
   if (now >= _ttsProviderSkipUntil.gcp && (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY)) {
     try {
       return await ttsGoogleCloud(text, voice);
@@ -1036,14 +1173,13 @@ async function ttsOneSegment(text, voice) {
         // not configured — silently move on
       } else if (_isQuotaErr(msg)) {
         _ttsProviderSkipUntil.gcp = now + 60_000;
-        console.log("[tts] Google Cloud TTS quota — trying OpenAI");
       } else {
         _ttsProviderSkipUntil.gcp = now + 5 * 60_000;
-        console.warn("[tts] Google Cloud TTS failed (" + msg.slice(0, 120) + "), trying OpenAI");
+        console.warn("[tts] Google Cloud TTS failed (" + msg.slice(0, 120) + ")");
       }
     }
   }
-  // 3. OpenAI (only if the user has a key set)
+  // 4. OpenAI (only if the user has a key set)
   if (now >= _ttsProviderSkipUntil.openai && process.env.OPENAI_API_KEY) {
     try {
       return await ttsOpenAI(text, voice);
@@ -1051,15 +1187,13 @@ async function ttsOneSegment(text, voice) {
       const msg = String(e?.message || e);
       if (_isQuotaErr(msg)) {
         _ttsProviderSkipUntil.openai = now + 60_000;
-        console.log("[tts] OpenAI quota — falling back to StreamElements retry");
       } else if (e.code !== "no-openai-key") {
         _ttsProviderSkipUntil.openai = now + 5 * 60_000;
-        console.warn("[tts] OpenAI failed (" + msg.slice(0, 120) + "), retrying StreamElements");
+        console.warn("[tts] OpenAI failed (" + msg.slice(0, 120) + ")");
       }
     }
   }
-  // Last-resort: retry StreamElements directly (in case its earlier
-  // cooldown was a transient network issue).
+  // Last-resort: retry StreamElements (transient cooldown may have expired).
   return await ttsStreamElements(text, voice);
 }
 
@@ -1083,13 +1217,18 @@ app.post("/api/tts", requireAuth, async (req, res) => {
     const { format } = req.body || {};
     let voice = req.body.voice || TTS_VOICE;
     let voiceB = req.body.voiceB || "Charon";
+    // Free-text voice description ("warm female narrator with a slight
+    // British accent") — used by ElevenLabs Voice Design when set.
+    const voiceCustom = sanitizeCustom(req.body.voiceCustom, 240);
     if (!ALLOWED_VOICES.has(voice)) voice = TTS_VOICE;
     if (!ALLOWED_VOICES.has(voiceB)) voiceB = "Charon";
     // Reject empty / whitespace-only text without burning a TTS provider call.
     if (!text) return res.status(400).json({ error: "Missing text" });
 
     const isPodcast = format === "podcast";
-    const cacheKey = `${text}|${voice}|${isPodcast ? `pod|${voiceB}` : "solo"}`;
+    // Voice description is part of the cache key — different descriptions
+    // produce different voices, so we don't want them sharing a file.
+    const cacheKey = `${text}|${voice}|${voiceCustom}|${isPodcast ? `pod|${voiceB}` : "solo"}`;
     const hash = crypto.createHash("md5").update(cacheKey).digest("hex").slice(0, 16);
     // Cache check: an existing wav OR mp3 with this hash means we already
     // generated this audio — return the cached file.
@@ -1129,7 +1268,7 @@ app.post("/api/tts", requireAuth, async (req, res) => {
       wavBuffer = pcmToWav(Buffer.concat(pcmParts), sampleRate);
     } else {
       // Solo mode supports the full TTS fallback chain.
-      const seg = await ttsOneSegment(text, voice);
+      const seg = await ttsOneSegment(text, voice, voiceCustom);
       if (seg.mp3) {
         // StreamElements path — MP3 (no transcoding, browsers play it fine)
         mp3Buffer = seg.mp3;
@@ -1458,7 +1597,7 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509f",
+  fastReelLoad: "20260509g",
   audioListenerAbortController: true,
   dragTouchActionFix: true,
   ttsTrimEmptyText: true,
@@ -1466,16 +1605,20 @@ const BUILD_INFO = {
   ttsClientRateLimit: "8 RPM, 60s quota cooldown",
   deviceVoiceWarmedUp: true,
   chapterAssetsPersisted: true,
-  // StreamElements is free + unlimited so it's the default. Paid
-  // providers are upgrades only when the user opts in via API key.
+  // ElevenLabs is the new primary if configured. StreamElements is
+  // the always-available free default. Paid providers below are pure
+  // quality upgrades the user opts into via env keys.
   ttsChain: [
+    process.env.ELEVENLABS_API_KEY ? "elevenlabs + voice-design" : null,
     "streamelements (free, no key)",
     (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY) ? "google-cloud-tts (Neural2)" : null,
     process.env.OPENAI_API_KEY ? "openai tts-1" : null,
     "device voice (browser fallback)",
   ].filter(Boolean),
-  ttsPrimary: "streamelements",
+  ttsPrimary: process.env.ELEVENLABS_API_KEY ? "elevenlabs" : "streamelements",
   ttsGeminiRemovedFromSoloChain: true,
+  voiceDesignSupport: !!process.env.ELEVENLABS_API_KEY,
+  dragRewrittenWithTouchEvents: true,
   imageDimsLogged: true,
   prefetchWorkers: "4 image + 2 audio",
   audioUnlockNonMuted: false, // reverted — muted unlock matches the working OLD pattern
