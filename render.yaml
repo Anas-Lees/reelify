@@ -7,22 +7,20 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: GEMINI_API_KEY
-        sync: false   # paste your AI Studio key in the Render dashboard
+        sync: false   # required — used for text generation (reels, quiz)
+                      # and image generation. NOT used for TTS anymore;
+                      # the preview-TTS rate limits made it unusable.
       - key: GOOGLE_CLOUD_API_KEY
-        sync: false   # OPTIONAL but free for the first ~1M chars/month —
-                      # Google Cloud Text-to-Speech (different from Gemini
-                      # preview TTS, has proper paid quotas). Same Google
-                      # billing account. Set this to a Cloud key with the
-                      # "Cloud Text-to-Speech API" enabled. If not set, the
-                      # GEMINI_API_KEY is auto-tried (works only if your AI
-                      # Studio key isn't restricted). Cost beyond free tier:
-                      # $4 per million chars Standard ($16 for Wavenet).
+        sync: false   # OPTIONAL UPGRADE — better-quality TTS (Neural2
+                      # voices). 1M chars/mo free, then $4/M Standard.
+                      # Need to enable "Cloud Text-to-Speech API" on your
+                      # Google Cloud project. Without this key, audio
+                      # uses StreamElements (free, no quota) by default.
       - key: OPENAI_API_KEY
-        sync: false   # OPTIONAL — paid OpenAI key, used only if BOTH
-                      # Gemini and Google Cloud TTS are quota-blocked.
-                      # Cost: ~$0.015 per 1k chars (so a 30-reel deck ≈ 4¢).
-                      # Without any TTS fallback set, audio drops to the
-                      # device voice when Gemini's quota runs out.
+        sync: false   # OPTIONAL UPGRADE — best-quality TTS (tts-1,
+                      # nova/onyx voices). $0.015 per 1k chars. Used only
+                      # if Google Cloud TTS isn't configured / unavailable.
+                      # Without this key, audio uses StreamElements (free).
       - key: DATABASE_URL
         sync: false   # Neon / Supabase / any Postgres connection string
       - key: JWT_SECRET

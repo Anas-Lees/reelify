@@ -989,38 +989,45 @@ async function ttsStreamElements(text, voice) {
   return { mp3: buf };
 }
 
-// Solo-mode TTS chain. Try in priority order:
-//   1. Gemini 2.5 Flash TTS (free quota, preview model)
-//   2. Google Cloud TTS (same Google billing, 1M chars/mo free)
-//   3. OpenAI tts-1 (paid, generous limits)
-//   4. StreamElements (free, no key, unlimited — TikTok-ish voices)
-// Each provider's quota error advances to the next; any non-quota error
-// from the chosen provider propagates so legitimate failures aren't
-// swallowed. Returns either { pcm, sampleRate } (Gemini/GCP), { wav }
-// (OpenAI) or { mp3 } (StreamElements). Caller picks the right extension.
-const _ttsProviderSkipUntil = { gemini: 0, gcp: 0, openai: 0 }; // ms timestamps
+// Solo-mode TTS chain. StreamElements is the primary because it's free,
+// has no API key, no per-minute quota, and never returns the
+// 429/RESOURCE_EXHAUSTED chatter the user kept seeing on Gemini's
+// preview-TTS model. Paid providers are kept as upgrades only — and
+// only used when the user has opted in by setting their API key.
+//
+// Order:
+//   1. StreamElements (free, no key, unlimited — TikTok-ish voices)
+//   2. Google Cloud TTS  (if GOOGLE_CLOUD_API_KEY is set — better quality)
+//   3. OpenAI tts-1      (if OPENAI_API_KEY is set — best quality)
+//
+// Gemini preview-TTS is intentionally NOT in the solo chain anymore
+// because its rate limits are unfixable by paid tier. It's still used
+// for podcast (2-voice) mode where we splice raw PCM between turns.
+//
+// Each provider's quota / non-quota error advances to the next.
+// Returns either { mp3 } (StreamElements), { pcm, sampleRate } (GCP),
+// or { wav } (OpenAI). Caller picks the right extension.
+const _ttsProviderSkipUntil = { streamelements: 0, gcp: 0, openai: 0 };
 function _isQuotaErr(msg) {
   return /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests|exceed/i.test(String(msg));
 }
 async function ttsOneSegment(text, voice) {
   const now = Date.now();
-  // 1. Gemini
-  if (now >= _ttsProviderSkipUntil.gemini) {
+  // 1. StreamElements — free, unlimited, default for everyone.
+  if (now >= _ttsProviderSkipUntil.streamelements) {
     try {
-      return await ttsGemini(text, voice);
+      return await ttsStreamElements(text, voice);
     } catch (e) {
       const msg = String(e?.message || e);
-      if (_isQuotaErr(msg)) {
-        _ttsProviderSkipUntil.gemini = now + 60_000; // 60s cooldown
-        console.log("[tts] Gemini quota — trying Google Cloud TTS");
-      } else if (e.code !== "no-gcp-key" && e.code !== "no-openai-key") {
-        // Non-quota Gemini failure — try the next provider just in case.
-        console.warn("[tts] Gemini failed (" + msg.slice(0, 100) + "), trying GCP");
-      }
+      // StreamElements rarely fails. If it does (network blip / they
+      // change the endpoint), 5-minute cooldown then try the paid
+      // upgrades if the user has them configured.
+      _ttsProviderSkipUntil.streamelements = now + 5 * 60_000;
+      console.warn("[tts] StreamElements failed (" + msg.slice(0, 120) + "), trying paid fallbacks");
     }
   }
-  // 2. Google Cloud TTS
-  if (now >= _ttsProviderSkipUntil.gcp) {
+  // 2. Google Cloud TTS (only if the user has a key set)
+  if (now >= _ttsProviderSkipUntil.gcp && (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY)) {
     try {
       return await ttsGoogleCloud(text, voice);
     } catch (e) {
@@ -1031,15 +1038,12 @@ async function ttsOneSegment(text, voice) {
         _ttsProviderSkipUntil.gcp = now + 60_000;
         console.log("[tts] Google Cloud TTS quota — trying OpenAI");
       } else {
-        // GCP returned an error but isn't a quota issue (probably the
-        // API isn't enabled on the project, or the key is restricted).
-        // Mark cool-down so we don't keep paying the round-trip and try OpenAI.
         _ttsProviderSkipUntil.gcp = now + 5 * 60_000;
         console.warn("[tts] Google Cloud TTS failed (" + msg.slice(0, 120) + "), trying OpenAI");
       }
     }
   }
-  // 3. OpenAI
+  // 3. OpenAI (only if the user has a key set)
   if (now >= _ttsProviderSkipUntil.openai && process.env.OPENAI_API_KEY) {
     try {
       return await ttsOpenAI(text, voice);
@@ -1047,14 +1051,15 @@ async function ttsOneSegment(text, voice) {
       const msg = String(e?.message || e);
       if (_isQuotaErr(msg)) {
         _ttsProviderSkipUntil.openai = now + 60_000;
-        console.log("[tts] OpenAI quota — trying StreamElements (free fallback)");
+        console.log("[tts] OpenAI quota — falling back to StreamElements retry");
       } else if (e.code !== "no-openai-key") {
         _ttsProviderSkipUntil.openai = now + 5 * 60_000;
-        console.warn("[tts] OpenAI failed (" + msg.slice(0, 120) + "), trying StreamElements");
+        console.warn("[tts] OpenAI failed (" + msg.slice(0, 120) + "), retrying StreamElements");
       }
     }
   }
-  // 4. StreamElements — free, no key, always available.
+  // Last-resort: retry StreamElements directly (in case its earlier
+  // cooldown was a transient network issue).
   return await ttsStreamElements(text, voice);
 }
 
@@ -1453,7 +1458,7 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509e",
+  fastReelLoad: "20260509f",
   audioListenerAbortController: true,
   dragTouchActionFix: true,
   ttsTrimEmptyText: true,
@@ -1461,13 +1466,16 @@ const BUILD_INFO = {
   ttsClientRateLimit: "8 RPM, 60s quota cooldown",
   deviceVoiceWarmedUp: true,
   chapterAssetsPersisted: true,
+  // StreamElements is free + unlimited so it's the default. Paid
+  // providers are upgrades only when the user opts in via API key.
   ttsChain: [
-    "gemini-2.5-flash-preview-tts",
+    "streamelements (free, no key)",
     (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY) ? "google-cloud-tts (Neural2)" : null,
     process.env.OPENAI_API_KEY ? "openai tts-1" : null,
-    "streamelements (free, no key)",
     "device voice (browser fallback)",
   ].filter(Boolean),
+  ttsPrimary: "streamelements",
+  ttsGeminiRemovedFromSoloChain: true,
   imageDimsLogged: true,
   prefetchWorkers: "4 image + 2 audio",
   audioUnlockNonMuted: false, // reverted — muted unlock matches the working OLD pattern
