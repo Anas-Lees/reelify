@@ -1972,7 +1972,10 @@ function ensureAudio(idx) {
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
-          const err = new Error("HTTP " + r.status + " " + (data.error || ""));
+          // Include the server-provided reason so the dbg overlay can
+          // tell us what's actually failing inside ttsEdge / Edge TTS.
+          const reason = data.reason ? " :: " + data.reason : "";
+          const err = new Error("HTTP " + r.status + " " + (data.error || "") + reason);
           err.status = r.status; err.body = data;
           throw err;
         }
@@ -1990,7 +1993,7 @@ function ensureAudio(idx) {
         audioInflight.delete(idx);
         const msg = String(e?.message || e);
         const status = e?.status || "?";
-        audioDbg("ensureAudio idx=" + idx + " FAIL " + status + " " + msg.slice(0, 80));
+        audioDbg("ensureAudio idx=" + idx + " FAIL " + status + " " + msg.slice(0, 200));
         if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg) || status === 503) {
           // Block all further TTS callers for 60s — saves them the round-trip
           _ttsQuotaBlockUntil = Date.now() + 60_000;

@@ -1280,7 +1280,13 @@ app.post("/api/tts", requireAuth, async (req, res) => {
     if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) {
       return res.status(503).json({ error: "Voice quota exceeded", quota: true });
     }
-    res.status(500).json({ error: "Voice generation failed" });
+    // Surface the underlying error reason so the client dbg overlay
+    // can show why TTS failed (we kept getting opaque 500s).
+    res.status(500).json({
+      error: "Voice generation failed",
+      reason: msg.slice(0, 300),
+      code: e?.code || null,
+    });
   }
 });
 
@@ -1611,7 +1617,8 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509i",
+  fastReelLoad: "20260509j",
+  ttsErrorReasonSurfaced: true,
   edgeTtsViaMsedgeTtsPackage: true,
   ttsEdgeOnlySoloChain: true,
   captionLeadOffsetSec: 0.18,
