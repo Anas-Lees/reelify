@@ -766,6 +766,21 @@ function buildReel(reel, idx, total) {
   const bg = document.createElement("div");
   bg.className = "reel-bg placeholder";
   bg.style.background = `linear-gradient(135deg, ${reel.accent_color || "#ff3b6b"} 0%, #1a1a3a 100%)`;
+  // Pretty animated loader — aurora blobs + a small "generating" pill.
+  // Lives inside the bg so it disappears the moment we apply the real
+  // image (we stamp `bg.style.background = "none"` and add `.img-loaded`).
+  bg.innerHTML = `
+    <div class="bg-aurora bg-aurora-1"></div>
+    <div class="bg-aurora bg-aurora-2"></div>
+    <div class="bg-aurora bg-aurora-3"></div>
+    <div class="bg-shimmer"></div>
+    <div class="bg-pill" aria-hidden="true">
+      <span class="bg-pill-dot"></span>
+      <span class="bg-pill-dot"></span>
+      <span class="bg-pill-dot"></span>
+      <span class="bg-pill-text">Painting</span>
+    </div>
+  `;
 
   const overlay = document.createElement("div");
   overlay.className = "reel-overlay";

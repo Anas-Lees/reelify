@@ -577,13 +577,128 @@ h1 {
 }
 
 .reel-bg.placeholder {
-  background: linear-gradient(135deg, var(--accent-color, var(--accent)) 0%, #1a1a3a 100%) !important;
-  filter: brightness(0.45) saturate(1);
+  background: linear-gradient(135deg, var(--accent-color, var(--accent)) 0%, #0f1226 60%, #050618 100%) !important;
+  filter: brightness(0.6) saturate(1.05);
+  overflow: hidden;
 }
-.reel-bg.placeholder::after {
-  content: "";
-  position: absolute; inset: 0;
-  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), transparent 60%);
+/* Hide the inner loader pieces the moment a real image is applied */
+.reel-bg:not(.placeholder) .bg-aurora,
+.reel-bg:not(.placeholder) .bg-shimmer,
+.reel-bg:not(.placeholder) .bg-pill { display: none !important; }
+
+/* Aurora blobs — three slow-drifting blurred radials with phase-offset
+   timing so the canvas always feels alive while the AI is painting. */
+.bg-aurora {
+  position: absolute;
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  filter: blur(54px);
+  opacity: 0.85;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.bg-aurora-1 {
+  top: -18%; left: -16%;
+  background: radial-gradient(circle, rgba(124,58,237,0.85), rgba(124,58,237,0) 60%);
+  animation: bg-aurora-drift-1 9s ease-in-out infinite;
+}
+.bg-aurora-2 {
+  bottom: -22%; right: -18%;
+  background: radial-gradient(circle, rgba(245,158,11,0.75), rgba(245,158,11,0) 60%);
+  animation: bg-aurora-drift-2 11s ease-in-out infinite;
+}
+.bg-aurora-3 {
+  top: 35%; left: 30%;
+  width: 60%; height: 60%;
+  background: radial-gradient(circle, rgba(244,114,182,0.65), rgba(244,114,182,0) 60%);
+  animation: bg-aurora-drift-3 13s ease-in-out infinite reverse;
+}
+@keyframes bg-aurora-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(18%, 16%) scale(1.18); }
+}
+@keyframes bg-aurora-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-14%, -12%) scale(1.10); }
+}
+@keyframes bg-aurora-drift-3 {
+  0%, 100% { transform: translate(-10%, 0) scale(0.95); }
+  50%      { transform: translate(20%, -18%) scale(1.12); }
+}
+
+/* Soft glassy sheen sweeping across — gives the "AI is thinking" feel
+   without being noisy. Layered above the aurora. */
+.bg-shimmer {
+  position: absolute;
+  inset: -10% -50%;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255,255,255,0.12) 48%,
+    rgba(255,255,255,0.20) 50%,
+    rgba(255,255,255,0.12) 52%,
+    transparent 62%
+  );
+  animation: bg-sheen 2.6s linear infinite;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: blur(2px);
+}
+@keyframes bg-sheen {
+  0%   { transform: translateX(-40%); }
+  100% { transform: translateX(40%); }
+}
+
+/* Small floating pill: "Painting · · ·" so the user knows AI is at work */
+.bg-pill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px 9px 14px;
+  background: rgba(15, 18, 38, 0.55);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  pointer-events: none;
+  z-index: 2;
+  animation: bg-pill-bob 2.6s ease-in-out infinite;
+}
+.bg-pill-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 0 10px rgba(255,255,255,0.55);
+  animation: bg-pill-dot 1.3s ease-in-out infinite;
+  flex: none;
+}
+.bg-pill-dot:nth-child(2) { animation-delay: 0.18s; }
+.bg-pill-dot:nth-child(3) { animation-delay: 0.36s; }
+.bg-pill-text {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+@keyframes bg-pill-dot {
+  0%, 60%, 100% { transform: scale(0.55); opacity: 0.45; }
+  30%           { transform: scale(1);    opacity: 1; }
+}
+@keyframes bg-pill-bob {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50%      { transform: translate(-50%, calc(-50% - 5px)); }
 }
 
 /* Soft pop-in when the real image replaces the placeholder */
@@ -1650,24 +1765,8 @@ html[dir="rtl"] .hint { text-align: center; }
 .ra-btn[data-action="like"].liked .ra-svg { fill: currentColor; }
 .ra-btn[data-action="save"].saved .ra-svg { fill: currentColor; }
 
-/* ----- Skeleton shimmer on placeholder backgrounds ----- */
-.reel-bg.placeholder::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.10) 50%,
-    transparent 70%);
-  background-size: 220% 100%;
-  animation: skel-shimmer 1.6s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
-}
-@keyframes skel-shimmer {
-  from { background-position: 200% 0; }
-  to   { background-position: -200% 0; }
-}
+/* (legacy skeleton shimmer removed — replaced by the .bg-aurora /
+   .bg-shimmer / .bg-pill loader rendered inside .reel-bg.placeholder) */
 
 /* ----- Mascot (hidden unless Soft Pastel theme) ----- */
 .mascot {
