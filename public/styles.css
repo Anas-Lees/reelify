@@ -811,6 +811,21 @@ h1 {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* Caption stage gets a subtle scale + glow while being dragged so the
+   user knows long-press worked. The translate(...) we set in JS is
+   preserved alongside the scale via the will-change hint. */
+.reel-caption-stage.dragging {
+  z-index: 9;
+  cursor: grabbing;
+  filter: drop-shadow(0 12px 28px rgba(0,0,0,0.5));
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
+.reel-caption-stage.dragging .caption-chunk {
+  transition: none; /* drag should be 1:1 with the finger */
+}
 .reel-card.dismissed {
   opacity: 0;
   transform: scale(0.92) translateY(-8px) !important;
@@ -866,9 +881,19 @@ html[dir="rtl"] .reel-card-lang { right: auto; left: 40px; }
   min-height: 64px;
   max-height: 140px;
 }
+/* When a card is present we want a slightly tighter caption, but the
+   user's caption-size choice still has to win — old rules had higher
+   specificity than `body[data-caption-size=...]`, which is why
+   "subs sometimes can't change size" when a card was visible. */
 .reel.has-card .caption-chunk { font-size: 22px; }
+body[data-caption-size="small"]  .reel.has-card .caption-chunk { font-size: 18px; }
+body[data-caption-size="medium"] .reel.has-card .caption-chunk { font-size: 22px; }
+body[data-caption-size="large"]  .reel.has-card .caption-chunk { font-size: 28px; }
 @media (max-width: 420px) {
   .reel.has-card .caption-chunk { font-size: 19px; }
+  body[data-caption-size="small"]  .reel.has-card .caption-chunk { font-size: 16px; }
+  body[data-caption-size="medium"] .reel.has-card .caption-chunk { font-size: 19px; }
+  body[data-caption-size="large"]  .reel.has-card .caption-chunk { font-size: 24px; }
 }
 
 /* --- Chunked captions (TikTok / Reels style) --- */
@@ -878,8 +903,16 @@ html[dir="rtl"] .reel-card-lang { right: auto; left: 40px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;            /* allow drag past stage edge */
   margin: 8px 0 36px;
+  /* Touch behavior: stage swallows pointer events on the chunk itself
+     so the caption is draggable by anywhere inside it (we'll add the
+     handler in JS). The reel still scrolls vertically because the
+     inner chunk uses pointer-events:none until grabbed. */
+  pointer-events: auto;
+  /* Pre-shift the visible mid-point of captions toward the lower third
+     of the available space — feels like Instagram, not centered text. */
+  padding-top: 24%;
 }
 
 .caption-chunk {

@@ -858,7 +858,12 @@ function buildReel(reel, idx, total) {
 
   const captionStage = document.createElement("div");
   captionStage.className = "reel-caption-stage";
+  captionStage.dataset.noTap = "1"; // long-press → drag, never the reel tap zone
   captionStage.innerHTML = renderChunkedCaption(reel.narration || "");
+
+  // Captions are long-press draggable too — same gesture as the note
+  // card. Lets the user park the caption wherever they want on screen.
+  makeDraggable(captionStage, { longPressMs: 260 });
 
   if (cardEl) content.append(titleWrap, cardEl, captionStage);
   else        content.append(titleWrap, captionStage);
@@ -1101,48 +1106,84 @@ function escapeHtml(s) {
 // Long-press to drag a reel card. After ~250ms hold the card enters drag mode
 // and follows the finger; release stops dragging and the card stays where you
 // dropped it for the rest of the session.
-function makeCardDraggable(cardEl) {
+// Generic long-press-to-drag helper. Used by reel cards AND by the
+// caption stage. Pointer-up/move are listened on the *document* (not
+// the element) so the drag continues even when the finger moves off
+// the element — fixes "the note only moves a little".
+function makeDraggable(el, opts = {}) {
+  const longPressMs = opts.longPressMs ?? 220;
+  const ignoreSelector = opts.ignoreSelector || null;
   let pressTimer = null;
   let dragMode = false;
   let startX = 0, startY = 0;
-  let cardX = 0, cardY = 0;
+  let baseX = 0, baseY = 0;
+  let activePointerId = null;
 
+  function readTranslate() {
+    const m = (el.style.transform || "").match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    return { x: m ? parseFloat(m[1]) : 0, y: m ? parseFloat(m[2]) : 0 };
+  }
+  function setTranslate(x, y) {
+    el.style.transform = `translate(${x}px, ${y}px)`;
+  }
+  function bindMoveUp() {
+    document.addEventListener("pointermove", onMove, { passive: false });
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  }
+  function unbindMoveUp() {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    document.removeEventListener("pointercancel", onUp);
+  }
   function onDown(e) {
-    if (e.target.closest(".reel-card-close")) return;
+    if (ignoreSelector && e.target.closest && e.target.closest(ignoreSelector)) return;
+    activePointerId = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+    const t = readTranslate();
+    baseX = t.x; baseY = t.y;
     pressTimer = setTimeout(() => {
+      pressTimer = null;
       dragMode = true;
-      cardEl.classList.add("dragging");
-      const rect = cardEl.getBoundingClientRect();
-      const m = (cardEl.style.transform || "").match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
-      cardX = m ? parseFloat(m[1]) : 0;
-      cardY = m ? parseFloat(m[2]) : 0;
-      startX = e.clientX;
-      startY = e.clientY;
-      try { cardEl.setPointerCapture?.(e.pointerId); } catch {}
-      try { navigator.vibrate?.(20); } catch {}
-    }, 250);
+      el.classList.add("dragging");
+      try { el.setPointerCapture?.(activePointerId); } catch {}
+      try { navigator.vibrate?.(18); } catch {}
+    }, longPressMs);
+    bindMoveUp();
   }
   function onMove(e) {
-    if (!dragMode) return;
+    if (!dragMode) {
+      // If the user moves significantly before long-press fires, treat it
+      // as a normal swipe — cancel the drag attempt entirely so the reel
+      // can scroll/swipe past it.
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (Math.hypot(dx, dy) > 12) {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        unbindMoveUp();
+      }
+      return;
+    }
     e.preventDefault();
-    e.stopPropagation();
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    cardEl.style.transform = `translate(${cardX + dx}px, ${cardY + dy}px)`;
+    setTranslate(baseX + dx, baseY + dy);
   }
   function onUp() {
     if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
     if (dragMode) {
       dragMode = false;
-      cardEl.classList.remove("dragging");
+      el.classList.remove("dragging");
+      try { el.releasePointerCapture?.(activePointerId); } catch {}
     }
+    activePointerId = null;
+    unbindMoveUp();
   }
+  el.addEventListener("pointerdown", onDown);
+}
 
-  cardEl.addEventListener("pointerdown", onDown);
-  cardEl.addEventListener("pointermove", onMove);
-  cardEl.addEventListener("pointerup", onUp);
-  cardEl.addEventListener("pointercancel", onUp);
-  cardEl.addEventListener("pointerleave", onUp);
+function makeCardDraggable(cardEl) {
+  makeDraggable(cardEl, { longPressMs: 220, ignoreSelector: ".reel-card-close" });
 }
 
 function hexToGlow(hex) {
@@ -1791,6 +1832,17 @@ function ensureAudio(idx) {
   const reel = currentReels[idx];
   if (!reel) return Promise.resolve(null);
 
+  // The model occasionally generates a reel object with no narration (or
+  // a tiny whitespace-only string). The server's /api/tts rejects empty
+  // text with HTTP 400 — calling it would just waste a request slot.
+  // Resolve null instantly; speakReel falls through to whatever caption
+  // chunks exist (or stays silent gracefully).
+  const narrationText = (reel.narration || "").trim();
+  if (!narrationText) {
+    audioDbg("ensureAudio idx=" + idx + " SKIP (empty narration)");
+    return Promise.resolve(null);
+  }
+
   const voice = (settings.voiceOverride && settings.voiceOverride !== "auto") ? settings.voiceOverride : reel.voice;
   const voiceB = (settings.voiceB && settings.voiceB !== "auto") ? settings.voiceB : (reel.voiceB || "Charon");
   const format = settings.format || "solo";
@@ -1805,7 +1857,7 @@ function ensureAudio(idx) {
     audioDbg("ensureAudio idx=" + idx + " POST /api/tts");
     return api("/api/tts", {
       method: "POST",
-      body: { text: reel.narration, voice, voiceB, format },
+      body: { text: narrationText, voice, voiceB, format },
     })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
