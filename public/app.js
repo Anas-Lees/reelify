@@ -1575,6 +1575,12 @@ async function speakReel(reelEl, idx) {
 
   // Build chunk timing once metadata loads
   let chunkData = null;
+  // Caption timing offset. Edge TTS MP3 files often include a tiny
+  // (≈ 80–120 ms) silence at the head, so karaoke captions feel a bit
+  // late vs the voice. Shift caption transitions slightly earlier so
+  // they line up with the actual speech, not the file start.
+  const CAPTION_LEAD_S = 0.18;
+
   function buildTiming() {
     const duration = audio.duration || estimateDuration(reel.narration);
     const totalChars = allWordEls.reduce((s, el) => s + Math.max(1, el.textContent.length), 0) || 1;
@@ -1598,6 +1604,15 @@ async function speakReel(reelEl, idx) {
   }
   if (audio.readyState >= 1) buildTiming();
   else audio.addEventListener("loadedmetadata", buildTiming, { once: true, signal: _abortSignal });
+  // For MP3 sources (Edge TTS) the browser's reported duration can
+  // start as a stream-bitrate estimate and only firm up after a chunk
+  // or two. Rebuild the timing whenever it changes so captions stay
+  // in sync with the real audio length.
+  audio.addEventListener("durationchange", () => {
+    if (currentAudio !== audio) return;
+    if (!isFinite(audio.duration) || audio.duration < 1) return;
+    buildTiming();
+  }, { signal: _abortSignal });
 
   let lastChunkIdx = -1;
   let lastWordIdx = -1;
@@ -1605,7 +1620,10 @@ async function speakReel(reelEl, idx) {
 
   function tick() {
     if (currentAudio !== audio) return;
-    const t = audio.currentTime;
+    // Apply CAPTION_LEAD_S so the active chunk/word lights up just
+    // before the matching audio is heard, compensating for the small
+    // leading silence Edge TTS MP3s tend to include.
+    const t = audio.currentTime + CAPTION_LEAD_S;
     const dur = audio.duration || estimateDuration(reel.narration);
 
     if (chunkData) {

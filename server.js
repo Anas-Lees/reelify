@@ -1163,89 +1163,20 @@ async function ttsStreamElements(text, voice) {
   return { mp3: buf };
 }
 
-// Solo-mode TTS chain.
-//   1. ElevenLabs (best quality, supports custom voice descriptions
-//      via Voice Design) — used if ELEVENLABS_API_KEY is set
-//   2. Microsoft Edge TTS (FREE, no key, unlimited — neural voices)
-//   3. Google Cloud TTS  (if GOOGLE_CLOUD_API_KEY is set)
-//   4. OpenAI tts-1      (if OPENAI_API_KEY is set)
+// Solo-mode TTS chain — Edge TTS only.
 //
-// Gemini preview-TTS is NOT in the chain because its rate limit is
-// unfixable by paid tier. It's still used for podcast (2-voice) mode
-// where we splice raw PCM between turns.
+// Rationale: Edge TTS is free, unlimited, no API key, and produces
+// neural-quality voice. Every other provider we tried was either
+// rate-limited (Gemini preview), pulled their free tier
+// (StreamElements), or was paid-only (ElevenLabs/GCP/OpenAI).
 //
-// `voiceCustom` is a free-text voice description like "warm female
-// narrator with a slight British accent" — when provided AND ElevenLabs
-// is configured, we run Voice Design once to get a permanent voice_id
-// and reuse it for every TTS call afterwards (cached in memory by
-// description hash).
-const _ttsProviderSkipUntil = { elevenlabs: 0, edge: 0, gcp: 0, openai: 0 };
-function _isQuotaErr(msg) {
-  return /429|quota|rate.?limit|RESOURCE_EXHAUSTED|TooManyRequests|exceed/i.test(String(msg));
-}
-async function ttsOneSegment(text, voice, voiceCustom) {
-  const now = Date.now();
-  // 1. ElevenLabs (only if the user has a key set)
-  if (now >= _ttsProviderSkipUntil.elevenlabs && process.env.ELEVENLABS_API_KEY) {
-    try {
-      return await ttsElevenLabs(text, voice, voiceCustom);
-    } catch (e) {
-      const msg = String(e?.message || e);
-      if (e.code === "no-elevenlabs-key") {
-        // not configured — silently move on
-      } else if (e.quota || _isQuotaErr(msg)) {
-        _ttsProviderSkipUntil.elevenlabs = now + 5 * 60_000;
-        console.log("[tts] ElevenLabs quota — falling back to StreamElements");
-      } else {
-        // Non-quota failure — back off for 5 minutes so we don't keep
-        // retrying a broken request shape / wrong voice_id.
-        _ttsProviderSkipUntil.elevenlabs = now + 5 * 60_000;
-        console.warn("[tts] ElevenLabs failed (" + msg.slice(0, 200) + "), trying StreamElements");
-      }
-    }
-  }
-  // 2. Microsoft Edge TTS — free, unlimited, neural voices, the new
-  //    always-available default for every user.
-  if (now >= _ttsProviderSkipUntil.edge) {
-    try {
-      return await ttsEdge(text, voice);
-    } catch (e) {
-      const msg = String(e?.message || e);
-      _ttsProviderSkipUntil.edge = now + 60_000;
-      console.warn("[tts] Edge TTS failed (" + msg.slice(0, 120) + "), trying paid fallbacks");
-    }
-  }
-  // 3. Google Cloud TTS (only if the user has a key set)
-  if (now >= _ttsProviderSkipUntil.gcp && (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY)) {
-    try {
-      return await ttsGoogleCloud(text, voice);
-    } catch (e) {
-      const msg = String(e?.message || e);
-      if (e.code === "no-gcp-key") {
-        // not configured — silently move on
-      } else if (_isQuotaErr(msg)) {
-        _ttsProviderSkipUntil.gcp = now + 60_000;
-      } else {
-        _ttsProviderSkipUntil.gcp = now + 5 * 60_000;
-        console.warn("[tts] Google Cloud TTS failed (" + msg.slice(0, 120) + ")");
-      }
-    }
-  }
-  // 4. OpenAI (only if the user has a key set)
-  if (now >= _ttsProviderSkipUntil.openai && process.env.OPENAI_API_KEY) {
-    try {
-      return await ttsOpenAI(text, voice);
-    } catch (e) {
-      const msg = String(e?.message || e);
-      if (_isQuotaErr(msg)) {
-        _ttsProviderSkipUntil.openai = now + 60_000;
-      } else if (e.code !== "no-openai-key") {
-        _ttsProviderSkipUntil.openai = now + 5 * 60_000;
-        console.warn("[tts] OpenAI failed (" + msg.slice(0, 120) + ")");
-      }
-    }
-  }
-  // Last-resort: retry Edge TTS (transient cooldown may have expired).
+// Gemini preview-TTS is NOT in the chain. It's still used for
+// podcast (2-voice) mode where we splice raw PCM between turns.
+//
+// `voiceCustom` is currently ignored in solo mode (Edge TTS doesn't
+// support voice-from-description). The setting still exists in the UI
+// for the day we wire ElevenLabs back in as an opt-in upgrade.
+async function ttsOneSegment(text, voice, _voiceCustom) {
   return await ttsEdge(text, voice);
 }
 
@@ -1593,6 +1524,32 @@ function loadLocalAsset(url, kind) {
   }
 }
 
+// Resolve an asset URL to bytes. Tries disk first (fast path for URLs
+// like /images/foo.png and /audio/tts_xxx.mp3 that are still on the
+// ephemeral disk), then falls back to an HTTP fetch over localhost
+// (works for stable DB-backed URLs like /api/chapters/<id>/asset/...
+// and /api/saved/<id>/{image,audio} so a re-saved chapter reel keeps
+// its bytes). Returns { data, mime } or null.
+async function resolveAssetBytes(url, kind, port) {
+  if (!url || typeof url !== "string") return null;
+  // Fast path: local disk read
+  const local = loadLocalAsset(url, kind);
+  if (local) return local;
+  // Slow path: fetch over the loopback. Only allow same-origin paths.
+  if (!url.startsWith("/")) return null;
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}${url}`, { method: "GET" });
+    if (!r.ok) return null;
+    const data = Buffer.from(await r.arrayBuffer());
+    const mime = r.headers.get("content-type") ||
+      (kind === "audio" ? "audio/mpeg" : "image/png");
+    return { data, mime };
+  } catch (err) {
+    console.warn("[saved] HTTP fetch fallback failed for", url, err?.message);
+    return null;
+  }
+}
+
 app.post("/api/saved", requireAuth, async (req, res) => {
   const { title, narration, backgroundPrompt, voice, accentColor, imageUrl, audioUrl, card } = req.body || {};
   if (!title || !narration) return res.status(400).json({ error: "title + narration required" });
@@ -1600,10 +1557,15 @@ app.post("/api/saved", requireAuth, async (req, res) => {
   const existing = await db.findSavedReel(req.user.id, title, narration);
   if (existing) return res.json({ saved: existing, dedup: true });
 
-  // Read the actual bytes off disk so the reel survives a redeploy that
-  // wipes the ephemeral /generated-images and /generated-audio dirs.
-  const img = loadLocalAsset(imageUrl, "image");
-  const aud = loadLocalAsset(audioUrl, "audio");
+  // Read the actual bytes — disk first, HTTP loopback fallback. The
+  // fallback covers DB-backed URLs (/api/chapters/.../asset/... or
+  // /api/saved/.../{image,audio}) that resolveAssetBytes can fetch
+  // back out of the DB and re-store in the new saved-reel row.
+  const port = process.env.PORT || 3000;
+  const [img, aud] = await Promise.all([
+    resolveAssetBytes(imageUrl, "image", port),
+    resolveAssetBytes(audioUrl, "audio", port),
+  ]);
 
   const saved = await db.createSavedReel({
     userId: req.user.id,
@@ -1613,7 +1575,7 @@ app.post("/api/saved", requireAuth, async (req, res) => {
     audioData: aud?.data || null,
     audioMime: aud?.mime || "",
   });
-  res.json({ saved });
+  res.json({ saved, persisted: { image: !!img, audio: !!aud } });
 });
 
 app.delete("/api/saved/:id", requireAuth, async (req, res) => {
@@ -1649,8 +1611,11 @@ const BUILD_INFO = {
   savedAssetSelfHeal: "20260507e",
   savedAssetsPersisted: true,
   reelLoadingGate: false, // removed in 20260508a — reel UI is now non-blocking
-  fastReelLoad: "20260509h",
+  fastReelLoad: "20260509i",
   edgeTtsViaMsedgeTtsPackage: true,
+  ttsEdgeOnlySoloChain: true,
+  captionLeadOffsetSec: 0.18,
+  savedReelHttpLoopbackFallback: true,
   audioListenerAbortController: true,
   dragTouchActionFix: true,
   ttsTrimEmptyText: true,
@@ -1662,13 +1627,10 @@ const BUILD_INFO = {
   // the always-available free default. Paid providers below are pure
   // quality upgrades the user opts into via env keys.
   ttsChain: [
-    process.env.ELEVENLABS_API_KEY ? "elevenlabs + voice-design" : null,
-    "microsoft edge tts (free, neural voices)",
-    (process.env.GOOGLE_CLOUD_API_KEY || process.env.GEMINI_API_KEY) ? "google-cloud-tts (Neural2)" : null,
-    process.env.OPENAI_API_KEY ? "openai tts-1" : null,
+    "microsoft edge tts (free, neural voices, unlimited)",
     "device voice (browser fallback)",
-  ].filter(Boolean),
-  ttsPrimary: process.env.ELEVENLABS_API_KEY ? "elevenlabs" : "microsoft-edge-tts",
+  ],
+  ttsPrimary: "microsoft-edge-tts",
   ttsGeminiRemovedFromSoloChain: true,
   voiceDesignSupport: !!process.env.ELEVENLABS_API_KEY,
   dragRewrittenWithTouchEvents: true,
