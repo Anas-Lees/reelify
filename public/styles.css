@@ -51,6 +51,24 @@ img, svg { -webkit-user-drag: none; }
 
 #app { height: 100vh; height: 100dvh; position: relative; overflow: hidden; }
 
+/* Pretty ambient background — soft aurora blobs behind the upload screen
+   so it never feels flat. Pure CSS, no images. Only the default UI theme
+   gets this; editorial / glass / riso / pastel have their own backdrops. */
+body[data-ui-theme="default"] #upload-screen.active {
+  background:
+    radial-gradient(60% 50% at 20% 12%, rgba(255,59,107,0.18) 0%, rgba(255,59,107,0) 70%),
+    radial-gradient(50% 45% at 88% 22%, rgba(107,140,255,0.20) 0%, rgba(107,140,255,0) 72%),
+    radial-gradient(55% 50% at 50% 95%, rgba(255,209,102,0.10) 0%, rgba(255,209,102,0) 70%),
+    var(--bg);
+}
+body[data-ui-theme="default"][data-app-theme="light"] #upload-screen.active {
+  background:
+    radial-gradient(60% 50% at 20% 12%, rgba(255,59,107,0.10) 0%, rgba(255,59,107,0) 70%),
+    radial-gradient(50% 45% at 88% 22%, rgba(107,140,255,0.13) 0%, rgba(107,140,255,0) 72%),
+    radial-gradient(55% 50% at 50% 95%, rgba(255,209,102,0.08) 0%, rgba(255,209,102,0) 70%),
+    var(--bg);
+}
+
 .screen {
   position: absolute;
   inset: 0;
@@ -1801,6 +1819,31 @@ body[data-ui-theme="default"][data-app-theme="light"] .sc-meta, body[data-ui-the
 body[data-ui-theme="default"][data-app-theme="light"] #askInput { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: var(--fg); }
 body[data-ui-theme="default"][data-app-theme="light"] .ask-answer { background: rgba(107,140,255,0.08); border-color: rgba(107,140,255,0.2); color: var(--fg); }
 body[data-ui-theme="default"][data-app-theme="light"] .new-subject-form input { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: var(--fg); }
+/* Style disclosure + paste-text button — overrides for light mode so the
+   text isn't white-on-white. Mirrors the dark-mode treatment but with
+   subtle ink tones instead. */
+body[data-ui-theme="default"][data-app-theme="light"] .cu-more > summary {
+  background: rgba(0,0,0,0.035);
+  border-color: rgba(0,0,0,0.10);
+  color: rgba(0,0,0,0.72);
+}
+body[data-ui-theme="default"][data-app-theme="light"] .cu-more > summary:hover,
+body[data-ui-theme="default"][data-app-theme="light"] .cu-more[open] > summary {
+  background: rgba(0,0,0,0.07);
+  border-color: rgba(0,0,0,0.18);
+  color: #15151c;
+}
+body[data-ui-theme="default"][data-app-theme="light"] .cu-more-caret { color: rgba(0,0,0,0.45); }
+body[data-ui-theme="default"][data-app-theme="light"] .paste-btn {
+  background: transparent !important;
+  border-color: rgba(0,0,0,0.10) !important;
+  color: rgba(0,0,0,0.65) !important;
+}
+body[data-ui-theme="default"][data-app-theme="light"] .paste-btn .ge-icon { color: rgba(0,0,0,0.5); }
+body[data-ui-theme="default"][data-app-theme="light"] .paste-btn:hover {
+  background: rgba(0,0,0,0.05) !important;
+  color: #15151c !important;
+}
 
 /* ----- Comprehensive RTL coverage (Arabic UI) ----- */
 html[dir="rtl"] body, html[dir="rtl"] .upload-card, html[dir="rtl"] .modal-card,
