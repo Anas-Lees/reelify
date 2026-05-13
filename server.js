@@ -844,7 +844,23 @@ function pcmToWav(pcmBuf, sampleRate = 24000, channels = 1, bitsPerSample = 16) 
 
 const ALLOWED_VOICES = new Set(["Aoede", "Puck", "Charon", "Kore", "Leda", "Fenrir", "Orus", "Zephyr"]);
 
+// Auto-detect Arabic text by Unicode block so the chain still does the
+// right thing if the client didn't pass a `language` hint (e.g. older app
+// versions, /api/tts called directly via curl).
+function detectLanguageFromText(text) {
+  const s = String(text || "");
+  if (/[؀-ۿ]/.test(s)) return "ar";
+  if (/[぀-ゟ゠-ヿ]/.test(s)) return "ja";
+  if (/[가-힯]/.test(s)) return "ko";
+  if (/[一-鿿]/.test(s)) return "zh";
+  if (/[ऀ-ॿ]/.test(s)) return "hi";
+  return "en";
+}
+
 // Generate TTS for one text + voice via Gemini. Returns { pcm, sampleRate }.
+// Gemini Flash Preview TTS follows the language of the source text natively
+// (Arabic narration is spoken in Arabic, etc.) — no per-language voice map
+// needed. Voices (Aoede/Puck/etc.) just control timbre.
 async function ttsGemini(text, voice) {
   const styled = `Read the following aloud in an engaging, upbeat narrator voice. Do not add anything else.\n\n${text}`;
   const result = await ai.models.generateContent({
@@ -1101,8 +1117,41 @@ const EDGE_VOICE_MAP = {
   Zephyr: "en-US-EmmaNeural",       // neutral female
 };
 
-async function ttsEdge(text, voice) {
-  const voiceName = EDGE_VOICE_MAP[voice] || "en-US-AriaNeural";
+// Per-language Edge Neural voice maps. The internal voice names
+// (Aoede/Puck/etc.) only map cleanly to English voices, so for other
+// languages we pick a sensible default. "female" / "male" keys are used
+// when the chosen voice gender can be inferred from the English map.
+const EDGE_VOICE_BY_LANG = {
+  en: { female: "en-US-AriaNeural",      male: "en-US-GuyNeural"      },
+  ar: { female: "ar-EG-SalmaNeural",     male: "ar-EG-ShakirNeural"   },
+  es: { female: "es-ES-ElviraNeural",    male: "es-MX-JorgeNeural"    },
+  fr: { female: "fr-FR-DeniseNeural",    male: "fr-FR-HenriNeural"    },
+  de: { female: "de-DE-KatjaNeural",     male: "de-DE-ConradNeural"   },
+  it: { female: "it-IT-ElsaNeural",      male: "it-IT-DiegoNeural"    },
+  pt: { female: "pt-BR-FranciscaNeural", male: "pt-BR-AntonioNeural"  },
+  ja: { female: "ja-JP-NanamiNeural",    male: "ja-JP-KeitaNeural"    },
+  ko: { female: "ko-KR-SunHiNeural",     male: "ko-KR-InJoonNeural"   },
+  hi: { female: "hi-IN-SwaraNeural",     male: "hi-IN-MadhurNeural"   },
+  zh: { female: "zh-CN-XiaoxiaoNeural",  male: "zh-CN-YunxiNeural"    },
+};
+
+// Voices we expose internally that are male-timbred. Everything else is
+// treated as female. Used to pick male vs. female non-English voice.
+const MALE_INTERNAL_VOICES = new Set(["Puck", "Charon", "Fenrir", "Orus"]);
+
+function pickEdgeVoice(voice, language) {
+  // Normalise language hint to a 2-letter code we have a voice map for.
+  const lang = String(language || "").slice(0, 2).toLowerCase();
+  // English: keep the per-voice mapping for nuanced timbre selection.
+  if (!lang || lang === "en") return EDGE_VOICE_MAP[voice] || "en-US-AriaNeural";
+  const langMap = EDGE_VOICE_BY_LANG[lang];
+  if (!langMap) return EDGE_VOICE_MAP[voice] || "en-US-AriaNeural"; // unknown lang → default
+  const gender = MALE_INTERNAL_VOICES.has(voice) ? "male" : "female";
+  return langMap[gender] || langMap.female;
+}
+
+async function ttsEdge(text, voice, language) {
+  const voiceName = pickEdgeVoice(voice, language);
   const tts = new MsEdgeTTS();
   await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
   const { audioStream } = await tts.toStream(text);
@@ -1161,11 +1210,19 @@ function splitForGTTS(text, max = 180) {
   if (cur) out.push(cur);
   return out;
 }
-async function ttsGoogleTranslate(text, _voice) {
+// Map our language hint to Google Translate's `tl=` parameter. Chinese
+// needs the regional suffix; everything else maps to its 2-letter code.
+const GTTS_LANG_MAP = {
+  en: "en", es: "es", fr: "fr", de: "de", it: "it", pt: "pt",
+  ja: "ja", ko: "ko", ar: "ar", hi: "hi", zh: "zh-CN",
+};
+async function ttsGoogleTranslate(text, _voice, language) {
+  const lang = String(language || "").slice(0, 2).toLowerCase();
+  const tl = GTTS_LANG_MAP[lang] || "en";
   const chunks = splitForGTTS(text);
   const buffers = [];
   for (let i = 0; i < chunks.length; i++) {
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunks[i])}&tl=en&client=tw-ob&total=${chunks.length}&idx=${i}&textlen=${chunks[i].length}`;
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunks[i])}&tl=${tl}&client=tw-ob&total=${chunks.length}&idx=${i}&textlen=${chunks[i].length}`;
     const r = await fetch(url, {
       headers: {
         "User-Agent":
@@ -1217,28 +1274,39 @@ async function ttsStreamElements(text, voice) {
   return { mp3: buf };
 }
 
-// Solo-mode TTS chain — only no-key free providers.
+// Solo-mode TTS chain — Gemini primary, then free fallbacks.
 //
-// 1. Microsoft Edge TTS  (msedge-tts package, neural voices)
-// 2. Google Translate TTS (unofficial, low-quality but reliable)
+// 1. Gemini Flash Preview TTS — best quality, follows source language
+//    natively (Arabic narration is spoken in Arabic, etc.). Has a hard
+//    ~10 RPM rate limit on the preview model, so once it 429s we fall
+//    through to the free providers for the rest of the deck.
+// 2. Microsoft Edge TTS — free neural voices, per-language voice map.
+//    Microsoft sometimes silently drops SSML on shared IP ranges
+//    ("Edge TTS produced no audio") so we keep a safety net below.
+// 3. Google Translate TTS — unofficial endpoint, lower quality but
+//    reliable; supports every language we expose via `tl=`.
 //
-// Edge TTS is the preferred path because the voices are much better,
-// but on Render's shared IP range Microsoft has been silently
-// returning empty SSML responses ("Edge TTS produced no audio").
-// When that happens we fall straight to Google Translate TTS so the
-// user always hears voice — even at lower quality.
+// `language` is a 2-letter code hint from the client (en / ar / es / …).
+// If it's missing we auto-detect from the text so Arabic chars never
+// accidentally render with an English voice.
 //
 // Errors include the provider name in the message so the dbg overlay
 // shows exactly which layer fell through to the next.
-async function ttsOneSegment(text, voice, _voiceCustom) {
+async function ttsOneSegment(text, voice, _voiceCustom, language) {
+  const lang = language || detectLanguageFromText(text);
   const errors = [];
   try {
-    return await ttsEdge(text, voice);
+    return await ttsGemini(text, voice);
+  } catch (e) {
+    errors.push("gemini: " + (e?.message || e));
+  }
+  try {
+    return await ttsEdge(text, voice, lang);
   } catch (e) {
     errors.push("edge: " + (e?.message || e));
   }
   try {
-    return await ttsGoogleTranslate(text, voice);
+    return await ttsGoogleTranslate(text, voice, lang);
   } catch (e) {
     errors.push("gtts: " + (e?.message || e));
   }
@@ -1268,6 +1336,10 @@ app.post("/api/tts", requireAuth, async (req, res) => {
     // Free-text voice description ("warm female narrator with a slight
     // British accent") — used by ElevenLabs Voice Design when set.
     const voiceCustom = sanitizeCustom(req.body.voiceCustom, 240);
+    // 2-letter language hint (en/ar/es/…). Falls back to autodetect from text
+    // if missing, so older clients / direct curl calls still pick the right
+    // voice — critical for Arabic, which silently sounded English before.
+    const language = String(req.body.language || "").slice(0, 8).toLowerCase() || detectLanguageFromText(text);
     if (!ALLOWED_VOICES.has(voice)) voice = TTS_VOICE;
     if (!ALLOWED_VOICES.has(voiceB)) voiceB = "Charon";
     // Reject empty / whitespace-only text without burning a TTS provider call.
@@ -1276,7 +1348,10 @@ app.post("/api/tts", requireAuth, async (req, res) => {
     const isPodcast = format === "podcast";
     // Voice description is part of the cache key — different descriptions
     // produce different voices, so we don't want them sharing a file.
-    const cacheKey = `${text}|${voice}|${voiceCustom}|${isPodcast ? `pod|${voiceB}` : "solo"}`;
+    // Language is included because the SAME text in a different language
+    // (e.g. an Arabic word that's also a transliterated English word) should
+    // not share a cached audio file.
+    const cacheKey = `${text}|${voice}|${voiceCustom}|${language}|${isPodcast ? `pod|${voiceB}` : "solo"}`;
     const hash = crypto.createHash("md5").update(cacheKey).digest("hex").slice(0, 16);
     // Cache check: an existing wav OR mp3 with this hash means we already
     // generated this audio — return the cached file.
@@ -1315,8 +1390,8 @@ app.post("/api/tts", requireAuth, async (req, res) => {
       }
       wavBuffer = pcmToWav(Buffer.concat(pcmParts), sampleRate);
     } else {
-      // Solo mode supports the full TTS fallback chain.
-      const seg = await ttsOneSegment(text, voice, voiceCustom);
+      // Solo mode supports the full TTS fallback chain (Gemini → Edge → GTTS).
+      const seg = await ttsOneSegment(text, voice, voiceCustom, language);
       if (seg.mp3) {
         // StreamElements path — MP3 (no transcoding, browsers play it fine)
         mp3Buffer = seg.mp3;
@@ -1685,7 +1760,10 @@ const BUILD_INFO = {
   fastReelLoad: "20260509k",
   ttsErrorReasonSurfaced: true,
   edgeTtsViaMsedgeTtsPackage: true,
-  ttsEdgeOnlySoloChain: true,
+  ttsEdgeOnlySoloChain: false, // superseded by gemini-primary chain
+  ttsGeminiPrimary: true,
+  ttsLanguageAware: true,      // per-language Edge voice + tl= for GTTS
+  ttsArabicSupported: true,    // ar-EG-SalmaNeural / SalmaNeural + tl=ar
   captionLeadOffsetSec: 0.18,
   savedReelHttpLoopbackFallback: true,
   audioListenerAbortController: true,
@@ -1699,13 +1777,14 @@ const BUILD_INFO = {
   // the always-available free default. Paid providers below are pure
   // quality upgrades the user opts into via env keys.
   ttsChain: [
-    "microsoft edge tts (free, neural voices)",
-    "google translate tts (free, lower quality)",
+    "gemini-2.5-flash-preview-tts (primary, multilingual)",
+    "microsoft edge tts (free, neural voices, per-language)",
+    "google translate tts (free, lower quality, per-language)",
     "device voice (browser fallback)",
   ],
-  ttsPrimary: "microsoft-edge-tts",
+  ttsPrimary: "gemini-2.5-flash-preview-tts",
   ttsGoogleTranslateFallback: true,
-  ttsGeminiRemovedFromSoloChain: true,
+  ttsGeminiRemovedFromSoloChain: false,
   voiceDesignSupport: !!process.env.ELEVENLABS_API_KEY,
   dragRewrittenWithTouchEvents: true,
   imageDimsLogged: true,

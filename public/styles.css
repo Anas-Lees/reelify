@@ -419,6 +419,50 @@ h1 {
   box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 4px 14px rgba(255,59,107,0.2);
 }
 
+/* "More options" disclosure — wraps the secondary chip rows so the upload
+   screen looks calm by default while keeping every control one tap away. */
+.cu-more {
+  margin-top: 4px;
+}
+.cu-more[open] { margin-top: 8px; }
+.cu-more > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 600;
+  user-select: none;
+  -webkit-user-select: none;
+  width: max-content;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.cu-more > summary::-webkit-details-marker { display: none; }
+.cu-more > summary:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+}
+.cu-more-icon { color: #ffd166; font-size: 14px; }
+.cu-more-caret {
+  margin-left: 2px;
+  color: rgba(255,255,255,0.55);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+.cu-more[open] > summary > .cu-more-caret { transform: rotate(-180deg); }
+.cu-more > .cu-row {
+  margin-top: 12px;
+}
+.cu-more[open] > .cu-row:first-of-type { margin-top: 14px; }
+/* In RTL (Arabic) the disclosure should still sit on the leading edge */
+html[dir="rtl"] .cu-more > summary { margin-right: 0; margin-left: auto; }
+
 /* Custom-text input that drops below a chip row */
 .cu-custom-input {
   margin-top: 8px;

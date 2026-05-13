@@ -182,6 +182,8 @@ const I18N = {
     // Voice + auto-advance
     voice_auto: "🤖 AI picks",
     autoadvance_on: "▶ On", autoadvance_off: "⏸ Off",
+    // More-options disclosure
+    more_options: "More options",
     // App style
     style_default: "🌑 Default", style_editorial: "📰 Editorial",
     style_glass: "💎 Liquid Glass", style_riso: "📜 Risograph", style_pastel: "🌸 Soft Pastel",
@@ -318,6 +320,7 @@ const I18N = {
     voice_auto: "🤖 يختار الذكاء",
     autoadvance_on: "▶ تشغيل", autoadvance_off: "⏸ إيقاف",
 
+    more_options: "خيارات إضافية",
     style_default: "🌑 افتراضي", style_editorial: "📰 مجلة",
     style_glass: "💎 زجاج سائل", style_riso: "📜 طباعة ريسو", style_pastel: "🌸 باستيل ناعم",
 
@@ -1770,8 +1773,18 @@ function browserSpeakReel(reelEl, idx, chunkEls) {
   // Pick a matching system voice if one is available, else let the engine
   // default kick in. Without an explicit lang the Android WebView often
   // picks a non-existent default and stays silent.
+  //
+  // Use the NARRATION language (settings.language) — not navigator.language
+  // — so Arabic narration falls back to an Arabic device voice instead of
+  // the user's English UI locale.
   try {
-    const langCode = (navigator.language || "en-US").slice(0, 5);
+    const LANG_TO_BCP47 = {
+      en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR", de: "de-DE",
+      it: "it-IT", pt: "pt-BR", ja: "ja-JP", ko: "ko-KR", hi: "hi-IN",
+      zh: "zh-CN",
+    };
+    const settingLang = settings.language === "custom" ? "" : (settings.language || "");
+    const langCode = LANG_TO_BCP47[settingLang] || (navigator.language || "en-US").slice(0, 5);
     utt.lang = langCode;
     const allVoices = window.speechSynthesis.getVoices() || [];
     if (allVoices.length) {
@@ -1964,10 +1977,14 @@ function ensureAudio(idx) {
       audioInflight.delete(idx);
       return null;
     }
-    audioDbg("ensureAudio idx=" + idx + " POST /api/tts");
+    // Pass the narration language so the server can pick the right voice
+    // per provider — critical for Arabic, which used to silently render
+    // with an English voice on the Edge / Google Translate fallbacks.
+    const language = settings.language === "custom" ? "" : (settings.language || "en");
+    audioDbg("ensureAudio idx=" + idx + " POST /api/tts lang=" + (language || "auto"));
     return api("/api/tts", {
       method: "POST",
-      body: { text: narrationText, voice, voiceB, format, voiceCustom },
+      body: { text: narrationText, voice, voiceB, format, voiceCustom, language },
     })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));

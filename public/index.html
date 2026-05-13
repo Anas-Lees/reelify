@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260509k" />
+  <link rel="stylesheet" href="styles.css?v=20260513a" />
   <script>
     // Global error visibility, but only for ACTUAL crashes — not for handled
     // network/quota errors (those are logged + shown via clean toasts elsewhere).
@@ -199,6 +199,9 @@
         </button>
 
         <div class="customize" id="customize">
+          <!-- Most-used controls stay visible: pick a vibe + the narration
+               language. Everything else is one tap away behind "More options"
+               so the upload screen doesn't feel overwhelming. -->
           <div class="cu-row">
             <div class="cu-label" data-i18n="label_vibe">Vibe</div>
             <div class="cu-chips" data-name="vibe">
@@ -213,6 +216,36 @@
               data-i18n-placeholder="vibe_custom_ph"
               placeholder="e.g. Attack on Titan style — dramatic anime monologues" />
           </div>
+          <div class="cu-row">
+            <div class="cu-label" data-i18n="label_language">Narration language</div>
+            <div class="cu-chips" data-name="language">
+              <button class="cu-chip" data-val="en">🇬🇧 English</button>
+              <button class="cu-chip" data-val="es">🇪🇸 Español</button>
+              <button class="cu-chip" data-val="fr">🇫🇷 Français</button>
+              <button class="cu-chip" data-val="de">🇩🇪 Deutsch</button>
+              <button class="cu-chip" data-val="it">🇮🇹 Italiano</button>
+              <button class="cu-chip" data-val="pt">🇵🇹 Português</button>
+              <button class="cu-chip" data-val="ja">🇯🇵 日本語</button>
+              <button class="cu-chip" data-val="ko">🇰🇷 한국어</button>
+              <button class="cu-chip" data-val="ar">🇸🇦 العربية</button>
+              <button class="cu-chip" data-val="hi">🇮🇳 हिन्दी</button>
+              <button class="cu-chip" data-val="zh">🇨🇳 中文</button>
+              <button class="cu-chip" data-val="custom" data-i18n="chip_custom">✏ Custom</button>
+            </div>
+            <input class="cu-custom-input hidden" data-name="language" maxlength="120"
+              data-i18n-placeholder="lang_custom_ph"
+              placeholder="e.g. Pirate English, Old English, Shakespearean" />
+          </div>
+
+          <!-- Advanced settings — one click to reveal the full set. All chip
+               groups inside remain bound by data-name=… so the existing JS
+               binding picks them up without changes. -->
+          <details class="cu-more">
+            <summary class="cu-more-toggle">
+              <span class="cu-more-icon" aria-hidden="true">⚙</span>
+              <span data-i18n="more_options">More options</span>
+              <span class="cu-more-caret" aria-hidden="true">▾</span>
+            </summary>
           <div class="cu-row">
             <div class="cu-label" data-i18n="label_look">Look</div>
             <div class="cu-chips" data-name="imageStyle">
@@ -256,26 +289,6 @@
             <input class="cu-custom-input hidden" data-name="quizDifficulty" maxlength="200"
               data-i18n-placeholder="quiz_custom_ph"
               placeholder="e.g. Trick questions, focus on dates" />
-          </div>
-          <div class="cu-row">
-            <div class="cu-label" data-i18n="label_language">Narration language</div>
-            <div class="cu-chips" data-name="language">
-              <button class="cu-chip" data-val="en">🇬🇧 English</button>
-              <button class="cu-chip" data-val="es">🇪🇸 Español</button>
-              <button class="cu-chip" data-val="fr">🇫🇷 Français</button>
-              <button class="cu-chip" data-val="de">🇩🇪 Deutsch</button>
-              <button class="cu-chip" data-val="it">🇮🇹 Italiano</button>
-              <button class="cu-chip" data-val="pt">🇵🇹 Português</button>
-              <button class="cu-chip" data-val="ja">🇯🇵 日本語</button>
-              <button class="cu-chip" data-val="ko">🇰🇷 한국어</button>
-              <button class="cu-chip" data-val="ar">🇸🇦 العربية</button>
-              <button class="cu-chip" data-val="hi">🇮🇳 हिन्दी</button>
-              <button class="cu-chip" data-val="zh">🇨🇳 中文</button>
-              <button class="cu-chip" data-val="custom" data-i18n="chip_custom">✏ Custom</button>
-            </div>
-            <input class="cu-custom-input hidden" data-name="language" maxlength="120"
-              data-i18n-placeholder="lang_custom_ph"
-              placeholder="e.g. Pirate English, Old English, Shakespearean" />
           </div>
           <div class="cu-row">
             <div class="cu-label" data-i18n="label_format">Format</div>
@@ -322,6 +335,7 @@
               <button class="cu-chip" data-val="off" data-i18n="autoadvance_off">⏸ Off</button>
             </div>
           </div>
+          </details>
         </div>
 
         <div class="cu-row" id="subjectPickerRow">
@@ -536,6 +550,6 @@
     </nav>
   </main>
 
-  <script src="app.js?v=20260509k"></script>
+  <script src="app.js?v=20260513a"></script>
 </body>
 </html>
