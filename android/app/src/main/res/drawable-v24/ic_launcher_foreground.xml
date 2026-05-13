@@ -1,16 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!--
-  Edu Shorts launcher icon — foreground layer (adaptive icon).
+  Edu Shorts launcher icon — foreground.
 
-  Design:
-    • A vertical rounded "phone-short" capsule (the brand metaphor for a
-      vertical video reel) in the brand gradient (pink → blue with a hint
-      of warm coral mid-stop), centered inside the 108x108 adaptive-icon
-      viewport.
-    • A white play triangle sits dead-center inside the capsule.
-
-  The shapes fit inside the 72x72 safe zone (margin 18 on each side) so
-  they're never clipped by any launcher mask (square, round, squircle).
-  Sits over the dark-indigo background defined in values/colors.xml.
+  Composition (108x108 viewport, content kept within the 72x72 safe zone):
+    • Soft ground shadow under everything
+    • 3D mortarboard "body" with two visible faces (front-left + front-right)
+    • Mortarboard top "board" with the Insta gradient sweep
+    • Subtle highlight + shadow along the board's edges to sell the tilt
+    • Yellow lightning bolt hanging from the right corner (tassel)
+    • Raised white play disc with hot-pink play triangle, drop shadow
+      and inner highlight so it reads as a 3D chip lying on the cap
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -19,39 +18,104 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer glow halo — soft accent ring, helps the icon read on busy
-         wallpapers without competing with the capsule. -->
+    <!-- Ground shadow under the cap -->
     <path
-        android:pathData="M 54 22 m -32 0 a 32 32 0 1 0 64 0 a 32 32 0 1 0 -64 0">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="radial"
-                android:centerX="54"
-                android:centerY="54"
-                android:gradientRadius="38"
-                android:startColor="#33FF3B6B"
-                android:endColor="#00000000" />
-        </aapt:attr>
-    </path>
+        android:fillColor="#4D000000"
+        android:pathData="M 54 92 m -34 0 a 34 3.5 0 1 0 68 0 a 34 3.5 0 1 0 -68 0" />
 
-    <!-- Vertical capsule (rounded rectangle) with the brand gradient -->
-    <path android:pathData="M 44 22 L 64 22 A 10 10 0 0 1 74 32 L 74 76 A 10 10 0 0 1 64 86 L 44 86 A 10 10 0 0 1 34 76 L 34 32 A 10 10 0 0 1 44 22 Z">
+    <!-- Cap body — front-left face -->
+    <path android:pathData="M 22 50 L 32 78 L 54 88 L 54 66 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="34"
-                android:startY="22"
-                android:endX="74"
-                android:endY="86">
-                <item android:offset="0.0" android:color="#FF3B6B" />
-                <item android:offset="0.55" android:color="#FF6B6B" />
-                <item android:offset="1.0" android:color="#6B8CFF" />
+                android:startX="22" android:startY="50"
+                android:endX="54" android:endY="86">
+                <item android:offset="0" android:color="#3A1465"/>
+                <item android:offset="1" android:color="#1C0A36"/>
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- White play triangle, centered in the capsule -->
+    <!-- Cap body — front-right face -->
+    <path android:pathData="M 86 50 L 76 78 L 54 88 L 54 66 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="54" android:startY="62"
+                android:endX="86" android:endY="86">
+                <item android:offset="0" android:color="#502070"/>
+                <item android:offset="1" android:color="#27124A"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Cap board (mortarboard top) — Insta gradient sweep -->
+    <path android:pathData="M 54 30 L 88 50 L 54 70 L 20 50 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="18" android:startY="32"
+                android:endX="86" android:endY="64">
+                <item android:offset="0"   android:color="#9333EA"/>
+                <item android:offset="0.5" android:color="#EC4899"/>
+                <item android:offset="1"   android:color="#F97316"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Board edge highlights (top edges, picking up the light) -->
+    <path android:fillColor="#2DFFFFFF"
+        android:pathData="M 54 30 L 88 50 L 84 50 L 54 33 Z" />
+    <path android:fillColor="#1AFFFFFF"
+        android:pathData="M 54 30 L 20 50 L 24 50 L 54 33 Z" />
+
+    <!-- Board edge shadow (front edges, in shadow) -->
+    <path android:fillColor="#2D000000"
+        android:pathData="M 54 70 L 88 50 L 84 51 L 54 68 Z" />
+    <path android:fillColor="#40000000"
+        android:pathData="M 54 70 L 20 50 L 24 51 L 54 68 Z" />
+
+    <!-- Lightning bolt (tassel) — yellow gradient -->
+    <path android:pathData="M 86 50 L 80 62 L 88 62 L 84 82 L 100 60 L 90 60 L 96 50 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="80" android:startY="50"
+                android:endX="94" android:endY="86">
+                <item android:offset="0"   android:color="#FFF59D"/>
+                <item android:offset="0.5" android:color="#FFD60A"/>
+                <item android:offset="1"   android:color="#FF8C00"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Bolt inner highlight -->
+    <path android:fillColor="#B3FFF9C4"
+        android:pathData="M 88 52 L 84 60 L 90 60 L 87 70 Z" />
+
+    <!-- Play disc shadow on the cap surface -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M 48 42 L 48 66 L 66 54 Z" />
+        android:fillColor="#47000000"
+        android:pathData="M 54 50.5 m -13 0 a 13 11 0 1 0 26 0 a 13 11 0 1 0 -26 0" />
+
+    <!-- Play disc — white with subtle radial gradient + inner highlight -->
+    <path android:pathData="M 54 48 m -13 0 a 13 11 0 1 0 26 0 a 13 11 0 1 0 -26 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="50" android:centerY="44"
+                android:gradientRadius="16">
+                <item android:offset="0" android:color="#FFFFFF"/>
+                <item android:offset="1" android:color="#E9E4EC"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Disc inner highlight (top half lighter) -->
+    <path
+        android:fillColor="#73FFFFFF"
+        android:pathData="M 54 46 m -11 0 a 11 7 0 1 0 22 0 a 11 7 0 1 0 -22 0" />
+
+    <!-- Play triangle, hot pink, isosceles pointing right -->
+    <path
+        android:fillColor="#EC4899"
+        android:pathData="M 49 41 L 49 55 L 62 48 Z" />
 </vector>
