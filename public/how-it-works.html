@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>How Edu Shorts works — the build, the stack, the workflow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a14;
+      --bg-2: #14141f;
+      --card: #1a1a28;
+      --fg: #f5f5fa;
+      --muted: #9095a8;
+      --pink: #EC4899;
+      --orange: #F97316;
+      --indigo: #515BD4;
+      --purple: #8134AF;
+      --yellow: #FFD60A;
+      --border: rgba(255,255,255,0.08);
+      --border-2: rgba(255,255,255,0.14);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.55;
+    }
+    body::before {
+      content: ""; position: fixed; inset: -10%; z-index: -1;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(236, 72, 153, 0.16) 0%, transparent 38%),
+        radial-gradient(circle at 86% 20%, rgba(81, 91, 212, 0.18) 0%, transparent 42%),
+        radial-gradient(circle at 50% 98%, rgba(249, 115, 22, 0.10) 0%, transparent 55%);
+      pointer-events: none;
+    }
+
+    .container { max-width: 880px; margin: 0 auto; padding: 0 22px; }
+
+    /* ===== HERO ===== */
+    .hero {
+      padding: max(72px, calc(env(safe-area-inset-top, 0) + 56px)) 22px 64px;
+      text-align: center;
+      position: relative;
+    }
+    .badge-row { display: inline-flex; gap: 8px; align-items: center;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .badge-dot { width: 7px; height: 7px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--pink), var(--indigo));
+      box-shadow: 0 0 12px rgba(236, 72, 153, 0.6);
+    }
+    .hero h1 {
+      font-size: clamp(34px, 7vw, 56px);
+      font-weight: 900;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      margin: 0 0 18px;
+      background: linear-gradient(135deg, #fff 0%, #c7c7ff 60%, #ffb4d8 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero p.tagline {
+      max-width: 560px;
+      margin: 0 auto;
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ===== SECTION HEADINGS ===== */
+    section { padding: 56px 0; }
+    section h2 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin: 0 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    section h2 .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px; height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--pink), var(--indigo));
+      color: white;
+      font-size: 16px;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+    section h2 .num.amber { background: linear-gradient(135deg, var(--yellow), var(--orange)); color: #251300; }
+    section h2 .num.violet { background: linear-gradient(135deg, var(--purple), var(--indigo)); }
+    section .lead {
+      color: var(--muted);
+      font-size: 15.5px;
+      margin: 0 0 28px 48px;
+      max-width: 620px;
+    }
+
+    /* ===== CARDS / GRIDS ===== */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 22px;
+      transition: border-color 0.18s ease, transform 0.18s ease;
+    }
+    .card:hover { border-color: var(--border-2); }
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .card .emoji {
+      font-size: 20px;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+    }
+
+    /* Stack grid */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .stack-card { padding: 16px 18px; }
+    .stack-card .role {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .stack-card .name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+    .stack-card .why { color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    /* Timeline */
+    .timeline { position: relative; padding-left: 28px; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 11px; top: 6px; bottom: 6px;
+      width: 2px;
+      background: linear-gradient(180deg,
+        var(--pink) 0%,
+        var(--purple) 50%,
+        var(--indigo) 100%);
+      opacity: 0.4;
+      border-radius: 1px;
+    }
+    .step {
+      position: relative;
+      padding: 14px 0 14px 0;
+    }
+    .step::before {
+      content: "";
+      position: absolute;
+      left: -22px; top: 22px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 2px solid var(--pink);
+      box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15);
+    }
+    .step:nth-child(3n+1)::before { border-color: var(--pink); box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15); }
+    .step:nth-child(3n+2)::before { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(129, 52, 175, 0.15); }
+    .step:nth-child(3n)::before   { border-color: var(--indigo); box-shadow: 0 0 0 4px rgba(81, 91, 212, 0.15); }
+    .step h4 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .step .meta {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .step .files {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .file-chip {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: #c5c5d8;
+    }
+
+    /* Workflow diagram (CSS only) */
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 700px) {
+      .flow { grid-template-columns: repeat(5, 1fr); align-items: stretch; }
+    }
+    .flow-step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+      position: relative;
+    }
+    .flow-step .ic {
+      font-size: 22px;
+      display: block;
+      margin-bottom: 6px;
+    }
+    .flow-step .lbl {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .flow-step .name {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    @media (min-width: 700px) {
+      .flow-step:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        right: -10px; top: 50%;
+        transform: translateY(-50%);
+        color: var(--muted);
+        font-weight: 700;
+        font-size: 16px;
+        z-index: 2;
+      }
+    }
+
+    /* Code blocks */
+    code, pre {
+      font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+      font-size: 13px;
+    }
+    pre {
+      background: #0e0e18;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      color: #d4d4e2;
+      line-height: 1.55;
+      margin: 12px 0 0 48px;
+    }
+    pre .c { color: #7a7a90; }
+    pre .k { color: #ff8aa6; }
+    pre .s { color: #a5e3a5; }
+    pre .n { color: #ffd166; }
+
+    /* TTS chain mini-diagram */
+    .chain {
+      display: grid;
+      gap: 8px;
+      margin: 4px 0 0;
+    }
+    .chain-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .chain-tier {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      flex: 0 0 auto;
+    }
+    .chain-tier.tier-1 { background: linear-gradient(135deg, var(--pink), var(--orange)); color: white; }
+    .chain-tier.tier-2 { background: linear-gradient(135deg, var(--purple), var(--indigo)); color: white; }
+    .chain-tier.tier-3 { background: rgba(255,255,255,0.08); color: var(--muted); border: 1px solid var(--border-2); }
+    .chain-row .name { font-weight: 700; font-size: 14.5px; }
+    .chain-row .why { color: var(--muted); font-size: 12.5px; }
+
+    /* Footer */
+    footer {
+      padding: 48px 22px 80px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      border-top: 1px solid var(--border);
+      margin-top: 48px;
+    }
+    footer a { color: var(--pink); text-decoration: none; font-weight: 600; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Pull-quote — for the "Why this was hard" callouts */
+    .callout {
+      margin: 14px 0 0 48px;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, rgba(236,72,153,0.07), rgba(81,91,212,0.07));
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--pink);
+      border-radius: 10px;
+      font-size: 14px;
+      color: #d4d4e2;
+      line-height: 1.6;
+    }
+    .callout strong { color: var(--fg); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<!-- ====================== HERO ====================== -->
+<section class="hero">
+  <div class="container">
+    <div class="badge-row">
+      <span class="badge-dot"></span>
+      <span>Behind Edu Shorts</span>
+    </div>
+    <h1>How the whole thing<br/>actually works.</h1>
+    <p class="tagline">
+      The stack, the AI chain, the workflow, and every fix that got Edu Shorts to where it is today — written in plain English.
+    </p>
+  </div>
+</section>
+
+<!-- ====================== 1 · THE STACK ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="num">1</span> The stack</h2>
+    <p class="lead">Every layer of the app and why it's there.</p>
+
+    <div class="stack-grid">
+      <div class="card stack-card">
+        <span class="role">Frontend</span>
+        <div class="name">Vanilla HTML + CSS + JS</div>
+        <p class="why">No framework. Faster to ship, easier to debug, no build step for the WebView.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Mobile shell</span>
+        <div class="name">Capacitor 8 (Android)</div>
+        <p class="why">Wraps the web app as an installable APK. Same code runs on phone + browser.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Backend</span>
+        <div class="name">Node 22 + Express 4</div>
+        <p class="why">REST + Server-Sent Events. Streams reels back to the client as the AI generates them.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">AI brain</span>
+        <div class="name">Google Gemini 2.5 Flash</div>
+        <p class="why">Reads the document → returns structured JSON of reels, quiz, voice picks. Also generates the per-reel background image.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Voice</span>
+        <div class="name">3-provider TTS chain</div>
+        <p class="why">Gemini TTS → Microsoft Edge TTS → Google Translate TTS. Falls through whenever one fails. (Details ↓)</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Database</span>
+        <div class="name">PostgreSQL on Neon</div>
+        <p class="why">Users, subjects, chapters, saved reels. Asset bytes (image / audio) stored in BYTEA columns so Render's ephemeral disk wipes don't lose anything.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Auth</span>
+        <div class="name">JWT + bcryptjs</div>
+        <p class="why">Sign-up / sign-in with email + password. Token stays in localStorage for 30 days.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Hosting</span>
+        <div class="name">Render (free tier)</div>
+        <p class="why">Auto-deploys from <code>git push origin main</code> in ~90 sec. Free dyno sleeps after 15 min idle.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">CI / APK</span>
+        <div class="name">GitHub Actions</div>
+        <p class="why">Every push triggers a Capacitor + Gradle build. Sideloadable APK lands as an artifact ~2 min later.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 2 · WHAT HAPPENS WHEN YOU TAP "GENERATE" ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="num violet">2</span> What happens when you tap "Generate"</h2>
+    <p class="lead">The end-to-end pipeline from "drop a file" to "watch your first short."</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <span class="ic">📄</span>
+        <div class="lbl">Step 1</div>
+        <div class="name">You drop a file</div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">📝</span>
+        <div class="lbl">Step 2</div>
+        <div class="name">Server extracts text</div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">🧠</span>
+        <div class="lbl">Step 3</div>
+        <div class="name">Gemini builds reels JSON</div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">🎨</span>
+        <div class="lbl">Step 4</div>
+        <div class="name">Image + Voice per reel</div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">📱</span>
+        <div class="lbl">Step 5</div>
+        <div class="name">Stream to phone</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Why streaming?</strong> Generating 10 reels takes ~30 s end-to-end. Instead of waiting, the server emits each reel over Server-Sent Events as it appears in the JSON stream — so you're watching the first reel within ~6 s of tapping Generate, while the rest still build in the background.
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 3 · THE TTS CHAIN ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="num amber">3</span> The voice fallback chain</h2>
+    <p class="lead">No single TTS provider is reliable enough. So we cascade through three — first one that returns audio wins.</p>
+
+    <div class="chain">
+      <div class="chain-row">
+        <div class="chain-tier tier-1">1</div>
+        <div>
+          <div class="name">Gemini 2.5 Flash Preview TTS</div>
+          <div class="why">Best quality, follows the narration's language natively (Arabic → Arabic voice, English → English voice). Has a hard 10 RPM limit, so the chain falls through on rate-limit errors.</div>
+        </div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-tier tier-2">2</div>
+        <div>
+          <div class="name">Microsoft Edge TTS</div>
+          <div class="why">Free neural voices with a per-language voice map — ar-EG-Salma for Arabic, en-US-Aria for English, plus 9 more. Used when Gemini is exhausted or unavailable.</div>
+        </div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-tier tier-3">3</div>
+        <div>
+          <div class="name">Google Translate TTS</div>
+          <div class="why">Unofficial endpoint, lower quality but extremely reliable. Last-resort so voice <em>always</em> plays. Splits long narration into ≤180-char chunks since the endpoint has a length cap.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Arabic was broken until we threaded a <code>language</code> hint from client to server.</strong> Edge TTS hardcoded English voices regardless of narration language; Google Translate TTS hardcoded <code>tl=en</code>. Both now pick the right voice from a per-language map. There's also a Unicode-block sniffer on the server as a safety net.
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 4 · THE DELIVERY WORKFLOW ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="num">4</span> Code → your phone, in two minutes</h2>
+    <p class="lead">What happens between "I save a file" and "the change is on the user's device."</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <span class="ic">⌨️</span>
+        <div class="lbl">Local</div>
+        <div class="name">Edit + commit</div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">⬆️</span>
+        <div class="lbl">Git push</div>
+        <div class="name">to <code>main</code></div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">🤖</span>
+        <div class="lbl">CI</div>
+        <div class="name">GH Actions builds APK</div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">☁️</span>
+        <div class="lbl">Render</div>
+        <div class="name">Auto-deploys backend + web</div>
+      </div>
+      <div class="flow-step">
+        <span class="ic">📲</span>
+        <div class="lbl">User</div>
+        <div class="name">App refreshes</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>The trick:</strong> the APK is a Capacitor shell pointed at the live Render URL — it loads the JS/CSS over HTTPS on every open. So 90% of changes ship just by reloading the app; you only rebuild the APK when the icon, package name, or native shell changes.
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 5 · THE JOURNEY ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="num violet">5</span> The journey — every change, in order</h2>
+    <p class="lead">From the state I inherited to today, in plain English.</p>
+
+    <div class="timeline">
+
+      <div class="step">
+        <div class="meta">Voice · Multi-language</div>
+        <h4>Restored Gemini TTS as the primary provider</h4>
+        <p>The chain had been simplified to Edge → Google Translate only. Put Gemini back at the top — it delivers the best quality and follows narration language natively. Now: Gemini → Edge → GTranslate.</p>
+        <div class="files">
+          <span class="file-chip">server.js</span>
+          <span class="file-chip">ttsOneSegment()</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="meta">Voice · Arabic fix</div>
+        <h4>Made every TTS layer language-aware</h4>
+        <p>Built per-language voice maps for Edge TTS (Arabic, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Hindi, Chinese). Added <code>tl=&lt;lang&gt;</code> to Google Translate TTS. The client now passes <code>settings.language</code> to <code>/api/tts</code>, and the server auto-detects Arabic from Unicode block if the hint is missing.</p>
+        <div class="files">
+          <span class="file-chip">EDGE_VOICE_BY_LANG</span>
+          <span class="file-chip">GTTS_LANG_MAP</span>
+          <span class="file-chip">detectLanguageFromText()</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="meta">Voice · Browser fallback</div>
+        <h4>Fixed device-voice fallback for Arabic narration</h4>
+        <p>The browser's <code>SpeechSynthesis</code> fallback was using <code>navigator.language</code> — so Arabic narration with an English UI still picked an English voice. Now it uses the narration's own language to look up a matching device voice.</p>
+        <div class="files">
+          <span class="file-chip">browserSpeakReel()</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="meta">UX · Less to read</div>
+        <h4>Simplified the upload screen</h4>
+        <p>Cut 11 chip rows down to 2 visible by default (Language + Style toggle). Removed the hero subtitle. Trimmed the drop zone copy. Made the Generate button bigger and added a soft shadow. Trimmed the narration language picker to English + Arabic only. Folded everything else (Vibe, Look, Length, Pace, Quiz, Voice…) into a single "Style ▾" disclosure.</p>
+        <div class="files">
+          <span class="file-chip">public/index.html</span>
+          <span class="file-chip">public/styles.css</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="meta">Visual · Backdrop</div>
+        <h4>Added a soft aurora gradient behind the upload screen</h4>
+        <p>Three radial-gradient blobs (pink top-left, blue top-right, amber bottom) so the screen never feels flat. Pure CSS, no images, weaker opacity for light mode.</p>
+        <div class="files">
+          <span class="file-chip">#upload-screen.active</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="meta">Bug fix · Light mode</div>
+        <h4>Made the light theme actually readable</h4>
+        <p>The Style pill, paste-text button, profile name, profile email, library tab labels, sign-out icon, and the "+ New subject" form container were all hardcoded white-on-white in light mode. Each got an ink-toned override.</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">Bug fix · RTL</div>
+        <h4>Stopped reels from flipping English word order in Arabic UI</h4>
+        <p>Added <code>dir="auto"</code> on each caption chunk + reel title. The browser now picks the reading direction from the first strong character in the narration content, not the page's UI direction. English reads L→R even in Arabic UI; Arabic reads R→L even in English UI.</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">Bug fix · Layout</div>
+        <h4>Generate button no longer hides behind the tab bar</h4>
+        <p>Bumped <code>.upload-card</code> bottom padding from 96 px to <code>max(130, 96 + safe-area)</code> so the S24 gesture nav doesn't tuck the button out of reach.</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">Captions · Sync</div>
+        <h4>Stopped captions racing ahead of the voice</h4>
+        <p>Two fixes: dropped the 180 ms caption lead to 0 (any anticipation made the gap worse), and added punctuation-pause weight to the word-timing model — trailing <code>.</code>/<code>!</code>/<code>?</code> add 5 virtual chars, <code>,</code>/<code>;</code> add 3. The lit word now sits on the sentence-end during the pause instead of skipping ahead.</p>
+        <div class="files">
+          <span class="file-chip">wordWeight()</span>
+          <span class="file-chip">buildTiming()</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="meta">Glass theme</div>
+        <h4>Fixed the Liquid Glass theme refusing to scroll</h4>
+        <p>The glass theme had <code>align-items: stretch</code> on the upload screen which capped the card at 100 dvh and clipped anything past the fold. Switched back to flex-start and added <code>overflow-y: auto</code> explicitly.</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">Brand</div>
+        <h4>Rebranded "reels" → "shorts" everywhere user-facing</h4>
+        <p>EN strings, AR strings, fallback HTML — all changed. Code identifiers (CSS classes, dataset attrs, localStorage keys, the <code>com.reelify.app</code> package name) are deliberately left alone so existing user data doesn't break.</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">Arabic copy</div>
+        <h4>Cleaner Arabic translation</h4>
+        <p>"موضوع" → "مادة" (academic "subject" instead of generic "topic"). "أَفلِت" → "ضع" on the drop zone / hero. Covers every label, toast, empty state, and confirm dialog.</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">UX trim</div>
+        <h4>Removed the podcast option + "+ New subject" from home</h4>
+        <p>Format + Voice B chip rows gone — the upload screen is calmer. Subject creation lives only in the Library page now. Stale <code>__new</code> state in localStorage auto-clears on load.</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">Nav</div>
+        <h4>Renamed "Home" → "Generate" in the bottom tab bar</h4>
+        <p>The middle tab actually does generation, so the icon swapped from a house to a plus and the label updated in both EN ("Generate") and AR ("إنشاء").</p>
+      </div>
+
+      <div class="step">
+        <div class="meta">Identity</div>
+        <h4>New launcher icon</h4>
+        <p>14 SVG concepts presented in a picker page so you could compare side-by-side at 96 px and 48 px. Your pick — graduation cap with a play badge on top and a yellow lightning-bolt tassel on an Instagram-style gradient — was first ported to SVG, then to a real rendered PNG, sized into all five Android densities (mdpi 48 px → xxxhdpi 192 px), and wired into the adaptive icon.</p>
+        <div class="files">
+          <span class="file-chip">mipmap-*hdpi/ic_launcher.png</span>
+          <span class="file-chip">mipmap-anydpi-v26/ic_launcher.xml</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 6 · TOOLS USED ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="num amber">6</span> Tools I leaned on</h2>
+    <p class="lead">The dev tooling behind every change above.</p>
+
+    <div class="stack-grid">
+      <div class="card stack-card">
+        <span class="role">Editor / Runtime</span>
+        <div class="name">Node.js + npm</div>
+        <p class="why">For local syntax checks (<code>node --check</code>) and image processing with <code>sharp</code>.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Version Control</span>
+        <div class="name">Git + GitHub</div>
+        <p class="why">Every change is a commit. <code>git push origin main</code> triggers both Render and GitHub Actions.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">CI Trigger</span>
+        <div class="name">GitHub CLI (<code>gh</code>)</div>
+        <p class="why">Used <code>gh workflow run build-apk.yml</code> to dispatch APK builds with the right backend URL; <code>gh run download</code> to pull the artifact.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Image processing</span>
+        <div class="name">sharp (Node)</div>
+        <p class="why">Resized your 1254×1254 logo PNG into the five Android density buckets for the launcher icon in one script.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">TTS</span>
+        <div class="name">msedge-tts npm package</div>
+        <p class="why">Talks to Microsoft's neural-voice WebSocket — free, no API key, used as the second link in the voice chain.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Hosting & monitoring</span>
+        <div class="name">curl + /api/version</div>
+        <p class="why">Polled <code>/api/version</code> after each push to confirm Render had picked up the new commit before testing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 7 · WHAT'S LIVE NOW ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="num">7</span> The live system</h2>
+    <p class="lead">Quick reference for what's running and where.</p>
+
+    <div class="stack-grid">
+      <div class="card stack-card">
+        <span class="role">Web app</span>
+        <div class="name">reelify-zgec.onrender.com</div>
+        <p class="why">Auto-deployed from <code>main</code>. Returns the same SPA the APK loads.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">APK</span>
+        <div class="name">~/Downloads/edu-shorts-apk/</div>
+        <p class="why">Latest build with the rendered cap-and-lightning launcher icon, sideload to your S24.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Database</span>
+        <div class="name">Neon Postgres</div>
+        <p class="why">Persistent through Render redeploys. Users / subjects / chapters / saved reels / asset bytes.</p>
+      </div>
+      <div class="card stack-card">
+        <span class="role">Source</span>
+        <div class="name">github.com/Anas-Lees/reelify</div>
+        <p class="why">Still named "reelify" — only the user-facing brand is "Edu Shorts" now.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Edu Shorts — built and shipped iteratively, change-by-change.<br/>
+  Anas Mohammad Alias, TM471 graduation project, Arab Open University · Kuwait.
+</footer>
+
+</body>
+</html>
