@@ -1560,12 +1560,14 @@ body[data-caption-size="large"]  .reel.has-card .caption-chunk { font-size: 28px
 
 /* Push content up so it doesn't slide behind the bottom nav.
    We drive this with a body.nav-visible class instead of CSS :has() so older
-   WebViews (which the user's S24 may use) compute correctly. */
+   WebViews (which the user's S24 may use) compute correctly.
+   Bumped to 130 because the larger Generate button + safe-area inset on
+   the S24 gesture nav was tucking the button partly under the tab bar. */
 body.nav-visible #upload-screen.active .upload-card {
-  padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0)));
+  padding-bottom: max(130px, calc(96px + env(safe-area-inset-bottom, 0)));
 }
 body.nav-visible #library-screen.active .library-page {
-  padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0)));
+  padding-bottom: max(130px, calc(96px + env(safe-area-inset-bottom, 0)));
 }
 
 /* Light theme bottom-nav */
@@ -1629,8 +1631,19 @@ body[data-format="podcast"] .voice-b-row { display: flex; flex-direction: column
   background: transparent;
   cursor: pointer;
 }
-.ns-row { display: flex; gap: 8px; align-items: center; }
-.ns-create { padding: 9px 14px !important; margin: 0 !important; flex: 1; }
+.ns-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap; /* on narrow phones, let nsCreate / nsCancel wrap to a new line so the form doesn't bleed past the card */
+}
+.ns-create {
+  padding: 9px 14px !important;
+  margin: 0 !important;
+  flex: 1 1 120px; /* keep a sensible min-width before wrapping */
+  min-width: 110px;
+}
+.new-subject-form .ghost-btn { flex: 0 0 auto; }
 
 .library-list {
   display: flex;
@@ -1845,6 +1858,43 @@ body[data-ui-theme="default"][data-app-theme="light"] .paste-btn:hover {
   color: #15151c !important;
 }
 
+/* New-subject form CONTAINER (the dashed wrapper around nsTitle + ns-row)
+   was a white dashed border on a white background → invisible. Plus the
+   ge-icon yellow looked washed out on light. */
+body[data-ui-theme="default"][data-app-theme="light"] .new-subject-form {
+  border-color: rgba(0,0,0,0.18);
+  background: rgba(0,0,0,0.025);
+}
+body[data-ui-theme="default"][data-app-theme="light"] .new-subject-form #nsColor,
+body[data-ui-theme="default"][data-app-theme="light"] .new-subject-form input#nsColor2 {
+  border-color: rgba(0,0,0,0.16);
+}
+/* The sign-out icon ⏻ in the library page bar uses .ge-icon, which is a
+   warm-yellow #ffd166 — readable on dark, almost invisible on light.
+   Darken it a touch for light mode so the button shape is legible. */
+body[data-ui-theme="default"][data-app-theme="light"] .ge-icon { color: #d97706; }
+
+/* Library page text that hardcoded white — gets ink tones in light mode
+   so the profile name, email, and tab labels are actually legible. */
+body[data-ui-theme="default"][data-app-theme="light"] .profile-name {
+  color: var(--fg);
+  border-bottom-color: rgba(0,0,0,0.18);
+}
+body[data-ui-theme="default"][data-app-theme="light"] .profile-name::placeholder { color: rgba(0,0,0,0.40); }
+body[data-ui-theme="default"][data-app-theme="light"] .profile-email { color: rgba(0,0,0,0.60); }
+body[data-ui-theme="default"][data-app-theme="light"] .library-tabs { background: rgba(0,0,0,0.05); }
+body[data-ui-theme="default"][data-app-theme="light"] .lib-tab { color: rgba(0,0,0,0.55); }
+body[data-ui-theme="default"][data-app-theme="light"] .lib-tab.active {
+  background: rgba(0,0,0,0.08);
+  color: var(--fg);
+}
+body[data-ui-theme="default"][data-app-theme="light"] .library-page-title { color: var(--fg); }
+body[data-ui-theme="default"][data-app-theme="light"] .avatar-edit {
+  background: rgba(255,255,255,0.92);
+  border-color: rgba(0,0,0,0.10);
+  color: var(--fg);
+}
+
 /* ----- Comprehensive RTL coverage (Arabic UI) ----- */
 html[dir="rtl"] body, html[dir="rtl"] .upload-card, html[dir="rtl"] .modal-card,
 html[dir="rtl"] .quiz-card, html[dir="rtl"] .ask-answer, html[dir="rtl"] .saved-item,
@@ -1874,13 +1924,15 @@ html[dir="rtl"] .reel-content { padding: 70px 22px calc(60px + env(safe-area-ins
 html[dir="rtl"] .close-btn { left: auto; right: 14px; }
 html[dir="rtl"] .reactions-picker { left: auto; right: 70px; }
 
-/* Caption chunks should keep LTR for English narration but flip for AR narration.
-   Captions use the auto-detected directionality of their content (browsers usually
-   handle this correctly inside <span> tags; we just hint at neutral alignment). */
-html[dir="rtl"] .caption-chunk {
-  direction: rtl;
-  text-align: center;
+/* Caption + reel-title direction follows the NARRATION content, not the
+   UI language. With unicode-bidi: plaintext the browser picks the
+   direction from the first strong char inside the element — so an
+   English reel narrated by an Arabic-UI user still flows L→R, and an
+   Arabic reel still flows R→L for an English-UI user. */
+.caption-chunk, .reel-title {
+  unicode-bidi: plaintext;
 }
+html[dir="rtl"] .caption-chunk { text-align: center; }
 
 /* Confirm-style buttons keep LTR alignment for arrows */
 html[dir="rtl"] .quiz-next { direction: ltr; text-align: center; }

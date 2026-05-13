@@ -823,6 +823,7 @@ function buildReel(reel, idx, total) {
   titleWrap.className = "reel-title-wrap";
   const titleEl = document.createElement("h2");
   titleEl.className = "reel-title";
+  titleEl.dir = "auto"; // direction follows the title content, not UI lang
   titleEl.textContent = reel.title || "";
   titleWrap.appendChild(titleEl);
 
@@ -1105,7 +1106,11 @@ function renderChunkedCaption(text) {
       const inner = ch
         .map((w) => `<span class="word">${escapeHtml(w.text)}</span>`)
         .join(" ");
-      return `<div class="caption-chunk" data-idx="${ci}">${inner}</div>`;
+      // dir="auto" lets the browser pick the reading direction from the
+      // first strong char in this chunk — so an English narration always
+      // reads L→R even when the UI is Arabic (and vice versa). Without
+      // this, RTL UI was flipping English word order in the reels.
+      return `<div class="caption-chunk" dir="auto" data-idx="${ci}">${inner}</div>`;
     })
     .join("");
 }
