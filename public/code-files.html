@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Edu Shorts — the code files explained</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a14;
+      --bg-2: #14141f;
+      --card: #1a1a28;
+      --fg: #f5f5fa;
+      --muted: #9095a8;
+      --pink: #EC4899;
+      --orange: #F97316;
+      --indigo: #515BD4;
+      --purple: #8134AF;
+      --yellow: #FFD60A;
+      --green: #51CF66;
+      --border: rgba(255,255,255,0.08);
+      --border-2: rgba(255,255,255,0.14);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.55;
+    }
+    body::before {
+      content: ""; position: fixed; inset: -10%; z-index: -1;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(236, 72, 153, 0.16) 0%, transparent 38%),
+        radial-gradient(circle at 86% 20%, rgba(81, 91, 212, 0.18) 0%, transparent 42%),
+        radial-gradient(circle at 50% 98%, rgba(249, 115, 22, 0.10) 0%, transparent 55%);
+      pointer-events: none;
+    }
+
+    .container { max-width: 920px; margin: 0 auto; padding: 0 22px; }
+
+    /* ===== HERO ===== */
+    .hero {
+      padding: max(72px, calc(env(safe-area-inset-top, 0) + 56px)) 22px 56px;
+      text-align: center;
+    }
+    .badge-row { display: inline-flex; gap: 8px; align-items: center;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 22px;
+    }
+    .badge-dot { width: 7px; height: 7px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--pink), var(--indigo));
+      box-shadow: 0 0 12px rgba(236, 72, 153, 0.6);
+    }
+    .hero h1 {
+      font-size: clamp(32px, 6.5vw, 52px);
+      font-weight: 900;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      margin: 0 0 18px;
+      background: linear-gradient(135deg, #fff 0%, #c7c7ff 60%, #ffb4d8 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero p.tagline {
+      max-width: 580px;
+      margin: 0 auto;
+      font-size: 16.5px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ===== Section headings ===== */
+    section { padding: 36px 0; }
+    section h2 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    section h2 .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .pill-backend  { background: linear-gradient(135deg, rgba(236,72,153,0.18), rgba(249,115,22,0.18)); color: #FF8AB5; }
+    .pill-frontend { background: linear-gradient(135deg, rgba(81,91,212,0.18), rgba(129,52,175,0.18)); color: #A8B0FF; }
+    .pill-config   { background: linear-gradient(135deg, rgba(255,214,10,0.18), rgba(249,115,22,0.18)); color: #FFD166; }
+    .pill-mobile   { background: linear-gradient(135deg, rgba(81,207,102,0.18), rgba(81,91,212,0.18)); color: #80E89A; }
+    .pill-docs     { background: rgba(255,255,255,0.06); color: var(--muted); }
+    section .lead {
+      color: var(--muted);
+      font-size: 14.5px;
+      margin: 0 0 24px;
+      max-width: 720px;
+    }
+
+    /* ===== File card ===== */
+    .file {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
+      transition: border-color 0.18s ease;
+    }
+    .file:hover { border-color: var(--border-2); }
+    .file-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .file-path {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--fg);
+      letter-spacing: -0.01em;
+    }
+    .file-path .dir { color: var(--muted); font-weight: 500; }
+    .file-meta {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 500;
+    }
+    .file-meta .dot { color: rgba(255,255,255,0.25); margin: 0 6px; }
+    .file-tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0 14px;
+    }
+    .file-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      color: #c5c5d8;
+      border: 1px solid var(--border);
+    }
+    .file h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .file p {
+      margin: 0 0 10px;
+      color: #d4d4e2;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .file ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.7;
+    }
+    .file ul li { margin-bottom: 3px; }
+    .file ul li strong { color: var(--fg); font-weight: 600; }
+    .file ul li code,
+    .file p code {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      background: rgba(255,255,255,0.06);
+      padding: 1px 6px;
+      border-radius: 5px;
+      color: #e7e7ff;
+    }
+
+    /* Section labels */
+    .sub-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 14px 0 6px;
+    }
+
+    /* "How they connect" diagram */
+    .flow-block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: #c5c5d8;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .flow-block .lbl { color: var(--pink); font-weight: 700; }
+    .flow-block .arr { color: var(--muted); }
+    .flow-block .file-name { color: var(--yellow); font-weight: 700; }
+
+    /* Footer */
+    footer {
+      padding: 36px 22px 80px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      border-top: 1px solid var(--border);
+      margin-top: 32px;
+    }
+    footer a { color: var(--pink); text-decoration: none; font-weight: 600; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- ====================== HERO ====================== -->
+<section class="hero">
+  <div class="container">
+    <div class="badge-row">
+      <span class="badge-dot"></span>
+      <span>Code tour</span>
+    </div>
+    <h1>The code, file by file.</h1>
+    <p class="tagline">
+      Every important file in Edu Shorts — what it is, what it does, the key functions inside, and how it talks to the other files around it.
+    </p>
+  </div>
+</section>
+
+<!-- ====================== BACKEND ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="pill pill-backend">Backend · Node</span></h2>
+    <p class="lead">The Express server that everything else talks to. Handles uploads, AI calls, the TTS fallback chain, persistence, and authentication.</p>
+
+    <!-- server.js -->
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">server.js</div>
+        <div class="file-meta">~1,800 lines<span class="dot">·</span>Express + SSE + Gemini + TTS chain</div>
+      </div>
+      <div class="file-tag-row">
+        <span class="file-tag">REST API</span>
+        <span class="file-tag">Server-Sent Events</span>
+        <span class="file-tag">AI calls</span>
+        <span class="file-tag">TTS</span>
+        <span class="file-tag">File upload</span>
+      </div>
+      <p>The single backend entry point. Express boots here, sets up auth + middleware, registers every route, and exits to <code>app.listen()</code>.</p>
+      <div class="sub-label">What lives in this file</div>
+      <ul>
+        <li><strong>Upload + text extraction.</strong> <code>POST /api/upload-stream</code> accepts a file, sniffs the format (PDF, DOCX, PPTX, image, plain text), and pulls the text — JSZip for OOXML, native Gemini for PDFs/images, officeparser as a fallback.</li>
+        <li><strong>Streaming reel generation.</strong> Builds the prompt with <code>buildReelPrompt(settings)</code> (vibe, length, language, quiz difficulty), sends it to Gemini, and emits each reel object over SSE as it appears in the JSON stream — so the user can start watching while the rest is still generating.</li>
+        <li><strong>Image generation.</strong> <code>POST /api/image</code> calls Gemini 2.5 Flash Image with the reel's <code>background_prompt</code> and saves the PNG to disk + the DB.</li>
+        <li><strong>TTS chain.</strong> <code>POST /api/tts</code> + <code>ttsOneSegment()</code> tries Gemini TTS → Edge TTS → Google Translate TTS in order. Per-language voice maps. Language hint auto-detected from text if missing.</li>
+        <li><strong>Auth.</strong> <code>/api/auth/signup</code>, <code>/api/auth/login</code>, <code>/api/auth/me</code>. JWT signed with <code>JWT_SECRET</code>, 30-day expiry.</li>
+        <li><strong>Library API.</strong> Subjects, chapters, saved reels — all CRUD routes that proxy to <code>db.js</code>.</li>
+        <li><strong>Health + version.</strong> <code>GET /api/version</code> returns the build SHA + feature flags so the client + curl can verify a deploy went out.</li>
+      </ul>
+    </div>
+
+    <!-- db.js -->
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">db.js</div>
+        <div class="file-meta">~440 lines<span class="dot">·</span>Postgres data layer</div>
+      </div>
+      <div class="file-tag-row">
+        <span class="file-tag">Postgres</span>
+        <span class="file-tag">Neon</span>
+        <span class="file-tag">Schema init</span>
+      </div>
+      <p>Every <code>server.js</code> route that needs to read or write the database calls a function defined here. Keeps SQL out of the route handlers.</p>
+      <div class="sub-label">What lives in this file</div>
+      <ul>
+        <li><strong>Schema bootstrapping.</strong> <code>initSchema()</code> creates the <code>users</code>, <code>subjects</code>, <code>chapters</code>, <code>saved_reels</code>, and <code>chapter_assets</code> tables if they don't exist — runs once on server boot.</li>
+        <li><strong>Users.</strong> <code>createUser</code>, <code>getUserByEmail</code>, <code>updateUserProfile</code>, <code>claimOrphanSubjectsFor</code> (one-time claim for the first user on a fresh DB).</li>
+        <li><strong>Library.</strong> <code>listSubjects</code>, <code>createSubject</code>, <code>getSubject</code>, <code>updateSubject</code>, <code>deleteSubject</code>, <code>listChapters</code>, <code>getChapter</code>, <code>createChapter</code>, <code>deleteChapter</code>.</li>
+        <li><strong>Asset bytes.</strong> <code>setChapterAsset</code>, <code>getChapterAsset</code>, <code>getSavedReelAsset</code> — the image/audio bytes are stored in <code>BYTEA</code> columns so Render's ephemeral disk wiping doesn't lose anything.</li>
+        <li><strong>Saved reels.</strong> <code>listSavedReels</code>, <code>findSavedReel</code>, <code>createSavedReel</code>, <code>deleteSavedReel</code>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== FRONTEND ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="pill pill-frontend">Frontend · Browser</span></h2>
+    <p class="lead">The single-page web app the Capacitor WebView (and any browser) loads from Render. Three files do all the work — no framework, no build step.</p>
+
+    <!-- public/index.html -->
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">public/</span>index.html</div>
+        <div class="file-meta">~520 lines<span class="dot">·</span>Static markup, all screens</div>
+      </div>
+      <div class="file-tag-row">
+        <span class="file-tag">Single page</span>
+        <span class="file-tag">All screens in one file</span>
+        <span class="file-tag">i18n placeholders</span>
+      </div>
+      <p>The app's skeleton. Every screen the user can see — login, library, upload, loading, reels, error, plus all modals — lives inside one HTML file as separate <code>&lt;section&gt;</code> blocks that get toggled active by JS.</p>
+      <div class="sub-label">What's defined in this file</div>
+      <ul>
+        <li><strong>The screens.</strong> <code>#login-screen</code>, <code>#library-screen</code>, <code>#upload-screen</code>, <code>#loading-screen</code>, <code>#error-screen</code>, <code>#reels-screen</code>.</li>
+        <li><strong>The modals.</strong> Paste-text, Ask-AI, Saved gallery, Library (legacy), App settings.</li>
+        <li><strong>The bottom tab bar.</strong> Library · Generate · Settings — visible only on upload + library screens.</li>
+        <li><strong>The customize panel.</strong> Two chip rows visible by default (Language + Style toggle); the disclosure reveals the rest.</li>
+        <li><strong>i18n placeholders.</strong> Every translatable element carries a <code>data-i18n</code> or <code>data-i18n-placeholder</code> attribute — JS reads them and swaps the text from the EN / AR dictionary.</li>
+      </ul>
+    </div>
+
+    <!-- public/app.js -->
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">public/</span>app.js</div>
+        <div class="file-meta">~3,800 lines<span class="dot">·</span>All client logic</div>
+      </div>
+      <div class="file-tag-row">
+        <span class="file-tag">Auth</span>
+        <span class="file-tag">Reel rendering</span>
+        <span class="file-tag">Audio / Karaoke</span>
+        <span class="file-tag">Drag</span>
+        <span class="file-tag">i18n</span>
+        <span class="file-tag">Streaming SSE</span>
+      </div>
+      <p>The brain of the client. Big file, but logically organised top-to-bottom. Everything that responds to a tap, a scroll, or a network event lives in here.</p>
+      <div class="sub-label">Roughly in this order</div>
+      <ul>
+        <li><strong>Settings + i18n.</strong> <code>DEFAULT_SETTINGS</code>, the <code>I18N</code> dictionary (EN + AR), <code>applyI18n()</code>, theme toggles.</li>
+        <li><strong>Auth.</strong> Sign-up / sign-in form, token persistence in <code>localStorage</code>, bootstrap on first load.</li>
+        <li><strong>Upload flow.</strong> File drop, paste-text modal, generate button. Streams the SSE response from <code>/api/upload-stream</code> and calls <code>appendStreamingReel()</code> as each reel arrives.</li>
+        <li><strong>Reel rendering.</strong> <code>buildReel()</code> creates the DOM for one reel — background image div, title, optional card, caption stage, etc. <code>renderChunkedCaption()</code> splits the narration into karaoke chunks.</li>
+        <li><strong>Image + audio prefetch.</strong> <code>ensureImage(idx)</code> + <code>ensureAudio(idx)</code> POST to <code>/api/image</code> + <code>/api/tts</code>, cache the URL, and reuse it. Pre-warmed for the next few reels in the background.</li>
+        <li><strong>Karaoke timing.</strong> <code>speakReel()</code> spins up a fresh <code>new Audio(url)</code>, builds the word/chunk timing with <code>buildTiming()</code> using punctuation-aware <code>wordWeight()</code>, then drives the active-word highlight on every <code>requestAnimationFrame</code>.</li>
+        <li><strong>Device-voice fallback.</strong> If every TTS provider fails, <code>browserSpeakReel()</code> uses the OS's <code>SpeechSynthesis</code> — language-aware so Arabic narration picks an Arabic system voice.</li>
+        <li><strong>Drag handling.</strong> Note overlay + caption stage are draggable; uses raw touch events (not Pointer Events) so Chromium WebView's gesture compositor can't steal them.</li>
+        <li><strong>Library + saved reels.</strong> Subject/chapter CRUD UI, calls server's <code>/api/subjects</code> + <code>/api/chapters</code>.</li>
+        <li><strong>Quiz.</strong> Renders the end-of-deck quiz, scores it, persists stats to <code>localStorage</code>.</li>
+      </ul>
+    </div>
+
+    <!-- public/styles.css -->
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">public/</span>styles.css</div>
+        <div class="file-meta">~3,700 lines<span class="dot">·</span>5 themes, full styling</div>
+      </div>
+      <div class="file-tag-row">
+        <span class="file-tag">5 UI themes</span>
+        <span class="file-tag">Light + Dark</span>
+        <span class="file-tag">RTL support</span>
+        <span class="file-tag">Phone-native layout</span>
+      </div>
+      <p>One stylesheet, organised by feature region. The bottom half is theme overrides — each UI theme (default, editorial, glass, riso, pastel) re-skins the same DOM.</p>
+      <div class="sub-label">What's defined</div>
+      <ul>
+        <li><strong>Layout primitives.</strong> Screens, upload card, drop zone, primary button, ghost button, chips, modals.</li>
+        <li><strong>Reel UI.</strong> Reel container, background image layer, title wrapper, caption stage with karaoke chunks (<code>.caption-chunk</code> + <code>.word</code>), reel actions sidebar, reel meta bar.</li>
+        <li><strong>Quiz UI.</strong> Quiz card, question, options, score card.</li>
+        <li><strong>Library UI.</strong> Subject card, chapter row, profile card, library tabs.</li>
+        <li><strong>5 UI themes.</strong> <code>body[data-ui-theme="default"]</code>, <code>"editorial"</code>, <code>"glass"</code>, <code>"riso"</code>, <code>"pastel"</code>. Each gets its own colour palette, fonts, shadows, accent treatment.</li>
+        <li><strong>Light + dark variants.</strong> Each theme has both, switched by <code>body[data-app-theme="light"]</code> / <code>"dark"</code>.</li>
+        <li><strong>RTL.</strong> Selectors under <code>html[dir="rtl"]</code> flip alignments, swap left/right inset positions, fix flex directions for Arabic UI.</li>
+        <li><strong>Aurora background.</strong> Soft radial-gradient blobs behind the upload screen for ambient color.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== CONFIG ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="pill pill-config">Config · Deploy</span></h2>
+    <p class="lead">Small files, but they decide where the app runs and how it gets built.</p>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">package.json</div>
+        <div class="file-meta">npm dependencies + scripts</div>
+      </div>
+      <p>Lists every Node dep the server needs: <code>express</code>, <code>@google/genai</code>, <code>msedge-tts</code>, <code>jsonwebtoken</code>, <code>bcryptjs</code>, <code>multer</code>, <code>pg</code>, <code>jszip</code>, <code>officeparser</code>, <code>@capacitor/core</code> + <code>@capacitor/android</code>. The <code>start</code> script (<code>node server.js</code>) is what Render runs on boot.</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">render.yaml</div>
+        <div class="file-meta">Render Blueprint</div>
+      </div>
+      <p>Tells Render what to build (Docker via the Dockerfile), what environment variables are required (<code>GEMINI_API_KEY</code>, <code>DATABASE_URL</code>, <code>JWT_SECRET</code>), and to <code>autoDeploy: true</code> on every push to <code>main</code>.</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">Dockerfile</div>
+        <div class="file-meta">Render's container image</div>
+      </div>
+      <p>Two-stage build: a Node 22 base, <code>npm ci</code> for production deps, copy the source, expose port 3000, run <code>node server.js</code>. Render rebuilds the container on every push.</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">capacitor.config.json</div>
+        <div class="file-meta">Android shell config</div>
+      </div>
+      <p>Sets the appId (<code>com.reelify.app</code>), appName (<code>Edu Shorts</code>), the web directory the WebView serves, and — most importantly — the <code>server.url</code> that points at the live Render backend so the APK loads JS/CSS from there on every open.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== CI ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="pill pill-mobile">CI · APK build</span></h2>
+    <p class="lead">How a sideloadable APK gets minted from the repo on every push.</p>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">.github/workflows/</span>build-apk.yml</div>
+        <div class="file-meta">GitHub Actions workflow</div>
+      </div>
+      <p>Triggers on every <code>main</code> push and on manual dispatch. Steps: check out the repo → install Node 22 + Java 21 + Android SDK → <code>npm ci</code> → optionally override <code>capacitor.config.json</code>'s server URL → <code>npx cap sync android</code> to mirror the web assets into the Android project → <code>./gradlew assembleDebug</code> → upload the resulting <code>app-debug.apk</code> as a workflow artifact.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== ANDROID ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="pill pill-mobile">Android · Native shell</span></h2>
+    <p class="lead">The Capacitor-generated Android project that wraps the WebView. Most of it is auto-managed; only a few files matter day-to-day.</p>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">android/app/src/main/res/values/</span>strings.xml</div>
+      </div>
+      <p>Holds the app's user-facing name (<code>Edu Shorts</code>) and the package identifier used at the OS level.</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">android/app/src/main/res/mipmap-anydpi-v26/</span>ic_launcher.xml</div>
+      </div>
+      <p>The adaptive-icon spec for Android 8.0+. Points at the background and foreground drawables that get composed and masked by the launcher.</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">android/app/src/main/res/mipmap-*hdpi/</span>ic_launcher_foreground.png</div>
+      </div>
+      <p>The actual rendered launcher icon image at five density buckets (<code>mdpi</code>, <code>hdpi</code>, <code>xhdpi</code>, <code>xxhdpi</code>, <code>xxxhdpi</code>) — produced by <code>sharp</code> from the source 1254×1254 PNG.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== EXTRAS ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="pill pill-docs">Extras</span></h2>
+    <p class="lead">Helper pages and docs that aren't part of the app itself.</p>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">HANDOFF.md</div>
+      </div>
+      <p>Markdown document written for an incoming AI assistant. Describes the entire system — stack, repo layout, env vars, TTS chain, known issues — so a fresh session can pick up immediately without re-reading the codebase.</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path">BUILD.md</div>
+      </div>
+      <p>End-user deploy instructions for fresh-installing the project from scratch (Render + Neon + GitHub Actions APK builds).</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">public/</span>logo-picker.html</div>
+      </div>
+      <p>The 15-option launcher-icon preview page used to compare designs side-by-side at 96 px and 48 px before committing to one. Standalone — opens directly in any browser, no JS dependencies.</p>
+    </div>
+
+    <div class="file">
+      <div class="file-head">
+        <div class="file-path"><span class="dir">public/</span>how-it-works.html</div>
+      </div>
+      <p>The companion to this page — explains the stack, the TTS chain, the delivery workflow, and the change-by-change journey. Lives next to the app so it's accessible via the live Render URL.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== HOW THEY CONNECT ====================== -->
+<section>
+  <div class="container">
+    <h2><span class="pill pill-frontend">How they connect</span></h2>
+    <p class="lead">A bird's-eye view of who calls who at runtime.</p>
+
+    <div class="flow-block">          <span class="lbl">PHONE / BROWSER</span>
+              │
+              │  loads
+              ▼
+          <span class="file-name">public/index.html</span>      <span class="arr">←</span> the shell, all screens
+              │
+              │  references
+              ▼
+   <span class="file-name">public/styles.css</span>   <span class="file-name">public/app.js</span>
+                          │
+                          │  fetch + SSE
+                          ▼
+          <span class="lbl">RENDER · Node</span>
+                          │
+                          ▼
+                  <span class="file-name">server.js</span>
+                     ├──► Gemini API   (text + images + TTS)
+                     ├──► msedge-tts   (Edge TTS fallback)
+                     ├──► translate.google.com  (last-resort TTS)
+                     └──► <span class="file-name">db.js</span>  ──► <span class="lbl">NEON · Postgres</span></div>
+  </div>
+</section>
+
+<footer>
+  Edu Shorts — code tour.<br/>
+  Companion to <a href="/how-it-works.html">/how-it-works.html</a> · pick a logo at <a href="/logo-picker.html">/logo-picker.html</a>.
+</footer>
+
+</body>
+</html>
