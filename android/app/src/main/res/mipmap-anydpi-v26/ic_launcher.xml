@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <!-- The actual rendered logo PNG carries its own gradient bg, so we use
+         the image as BOTH layers: the system mask (circle / squircle) crops
+         the result and the gradient + cap stay visible at any mask shape. -->
+    <background android:drawable="@mipmap/ic_launcher_foreground"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>
