@@ -734,62 +734,90 @@
       <div class="icon-tile colorful">
         <svg viewBox="0 0 108 108">
           <defs>
-            <linearGradient id="capBoard" x1="14" y1="30" x2="96" y2="70" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#1a1340"/>
-              <stop offset="1" stop-color="#2c1f6b"/>
+            <!-- Board top — sweeps the Insta gradient across the cap surface so
+                 it reads as catching the same light as the backdrop. -->
+            <linearGradient id="boardGrad" x1="18" y1="32" x2="86" y2="64" gradientUnits="userSpaceOnUse">
+              <stop offset="0"   stop-color="#9333EA"/>
+              <stop offset="0.5" stop-color="#EC4899"/>
+              <stop offset="1"   stop-color="#F97316"/>
             </linearGradient>
-            <linearGradient id="capUnder" x1="36" y1="60" x2="72" y2="84" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#0e0b25"/>
-              <stop offset="1" stop-color="#1a1340"/>
+            <!-- Cap body — two visible faces in subtly different darks for a
+                 clean 3D edge between front and right. -->
+            <linearGradient id="bodyL" x1="22" y1="50" x2="54" y2="86" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#3a1465"/>
+              <stop offset="1" stop-color="#1c0a36"/>
             </linearGradient>
-            <linearGradient id="boltGrad" x1="78" y1="50" x2="92" y2="92" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#FFE066"/>
-              <stop offset="1" stop-color="#FF8C42"/>
+            <linearGradient id="bodyR" x1="54" y1="62" x2="86" y2="86" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#502070"/>
+              <stop offset="1" stop-color="#27124a"/>
             </linearGradient>
+            <linearGradient id="boltGrad" x1="80" y1="50" x2="94" y2="86" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FFF59D"/>
+              <stop offset="0.5" stop-color="#FFD60A"/>
+              <stop offset="1" stop-color="#FF8C00"/>
+            </linearGradient>
+            <radialGradient id="discGrad" cx="50" cy="44" r="14" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ffffff"/>
+              <stop offset="1" stop-color="#e9e4ec"/>
+            </radialGradient>
           </defs>
 
-          <!-- Underside / band of the cap -->
-          <path d="M 36 60 L 36 76 Q 54 86 72 76 L 72 60 L 54 70 Z" fill="url(#capUnder)"/>
+          <!-- Soft ground shadow puddles -->
+          <ellipse cx="54" cy="92" rx="34" ry="3.5" fill="#000" opacity="0.30"/>
 
-          <!-- Mortarboard top (rhombus / diamond from the 3/4 view) -->
-          <path d="M 54 30 L 96 50 L 54 70 L 12 50 Z" fill="url(#capBoard)"/>
+          <!-- Lightning bolt glow halo (sits behind everything on the right) -->
+          <path d="M 86 50 L 80 62 L 88 62 L 84 82 L 100 60 L 90 60 L 96 50 Z"
+                fill="#FFEB3B" opacity="0.18"
+                transform="translate(0,0) scale(1.15) translate(-12,-7)"/>
 
-          <!-- Subtle highlight on the front-right edge of the board -->
-          <path d="M 54 70 L 96 50 L 90 50 L 54 67 Z" fill="#ffffff" opacity="0.10"/>
+          <!-- Cap body left/front face -->
+          <path d="M 22 50 L 32 78 L 54 88 L 54 66 Z" fill="url(#bodyL)"/>
+          <!-- Cap body right face -->
+          <path d="M 86 50 L 76 78 L 54 88 L 54 66 Z" fill="url(#bodyR)"/>
+          <!-- Body inner highlight along the front-right edge -->
+          <path d="M 54 66 L 54 88 L 56 86 L 56 67 Z" fill="#fff" opacity="0.06"/>
 
-          <!-- Tassel cord, drawn as a lightning bolt that hangs from the cap's
-               right corner. The lightning IS the string. -->
-          <path
-            d="M 92 50
-               L 88 60
-               L 96 60
-               L 90 76
-               L 100 62
-               L 92 62
-               L 96 50 Z"
-            fill="url(#boltGrad)"
-            stroke="#FFD166" stroke-width="0.8" stroke-linejoin="round"/>
+          <!-- Cap board (mortarboard top) -->
+          <path d="M 54 30 L 88 50 L 54 70 L 20 50 Z" fill="url(#boardGrad)"/>
+          <!-- Highlight along the cap's leading edges -->
+          <path d="M 54 30 L 88 50 L 84 50 L 54 33 Z" fill="#ffffff" opacity="0.18"/>
+          <path d="M 54 30 L 20 50 L 24 50 L 54 33 Z" fill="#ffffff" opacity="0.10"/>
+          <!-- Subtle shadow along the cap's front edge -->
+          <path d="M 54 70 L 88 50 L 84 51 L 54 68 Z" fill="#000" opacity="0.18"/>
+          <path d="M 54 70 L 20 50 L 24 51 L 54 68 Z" fill="#000" opacity="0.25"/>
 
-          <!-- Play disc lying flat on the cap surface — rendered as an
-               ellipse with the same 42:20 aspect as the rhombus board, and
-               a play triangle whose left edge is foreshortened vertically
-               to match the perspective. Subtle shadow underneath grounds
-               it onto the cap. -->
-          <ellipse cx="54" cy="53" rx="15" ry="7.2" fill="#000" opacity="0.22"/>
-          <ellipse cx="54" cy="50" rx="15" ry="7" fill="#ffffff"/>
-          <ellipse cx="54" cy="49" rx="15" ry="6.8" fill="none" stroke="#ffffff" stroke-width="0.6" opacity="0.7"/>
-          <path d="M 47.5 46.8 L 47.5 53.2 L 61.5 50 Z" fill="#DD2A7B"/>
+          <!-- Lightning bolt (yellow) hanging from the cap's right corner -->
+          <path d="M 86 50 L 80 62 L 88 62 L 84 82 L 100 60 L 90 60 L 96 50 Z"
+                fill="url(#boltGrad)"
+                stroke="#FFB300" stroke-width="0.6" stroke-linejoin="round"/>
+          <!-- Bolt inner highlight -->
+          <path d="M 88 52 L 84 60 L 90 60 L 87 70 Z" fill="#FFF9C4" opacity="0.7"/>
+
+          <!-- Play button shadow on cap surface -->
+          <ellipse cx="54" cy="50.5" rx="13" ry="11" fill="#000" opacity="0.28"/>
+
+          <!-- Play button — nearly circular disc with subtle gradient to feel
+               like a 3D chip lying on the cap. Slightly squished vertically
+               so it follows the perspective of the mortarboard. -->
+          <ellipse cx="54" cy="48" rx="13" ry="11" fill="url(#discGrad)"/>
+          <ellipse cx="54" cy="48" rx="13" ry="11" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.6"/>
+          <ellipse cx="54" cy="46" rx="11" ry="7" fill="#ffffff" opacity="0.45"/>
+
+          <!-- Play triangle, hot-pink, isosceles pointing right -->
+          <path d="M 49 41 L 49 55 L 62 48 Z" fill="#EC4899"/>
         </svg>
       </div>
       <div class="size-mini">
         <div class="icon-tile small colorful">
           <svg viewBox="0 0 108 108">
-            <path d="M 36 60 L 36 76 Q 54 86 72 76 L 72 60 L 54 70 Z" fill="url(#capUnder)"/>
-            <path d="M 54 30 L 96 50 L 54 70 L 12 50 Z" fill="url(#capBoard)"/>
-            <path d="M 92 50 L 88 60 L 96 60 L 90 76 L 100 62 L 92 62 L 96 50 Z" fill="url(#boltGrad)"/>
-            <ellipse cx="54" cy="53" rx="15" ry="7.2" fill="#000" opacity="0.22"/>
-            <ellipse cx="54" cy="50" rx="15" ry="7" fill="#ffffff"/>
-            <path d="M 47.5 46.8 L 47.5 53.2 L 61.5 50 Z" fill="#DD2A7B"/>
+            <ellipse cx="54" cy="92" rx="34" ry="3.5" fill="#000" opacity="0.30"/>
+            <path d="M 22 50 L 32 78 L 54 88 L 54 66 Z" fill="url(#bodyL)"/>
+            <path d="M 86 50 L 76 78 L 54 88 L 54 66 Z" fill="url(#bodyR)"/>
+            <path d="M 54 30 L 88 50 L 54 70 L 20 50 Z" fill="url(#boardGrad)"/>
+            <path d="M 86 50 L 80 62 L 88 62 L 84 82 L 100 60 L 90 60 L 96 50 Z" fill="url(#boltGrad)"/>
+            <ellipse cx="54" cy="50.5" rx="13" ry="11" fill="#000" opacity="0.28"/>
+            <ellipse cx="54" cy="48" rx="13" ry="11" fill="url(#discGrad)"/>
+            <path d="M 49 41 L 49 55 L 62 48 Z" fill="#EC4899"/>
           </svg>
         </div>
         <span class="cap">48 px</span>
