@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Edu Shorts — pick a logo</title>
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --card: #14141e;
+      --fg: #f5f5fa;
+      --muted: #8a8aa0;
+      --border: rgba(255,255,255,0.08);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+      font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+      min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    header {
+      padding: 36px 24px 24px;
+      max-width: 760px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    h1 {
+      font-size: 28px;
+      margin: 0 0 8px;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #fff, #b0b0ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    header p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      padding: 24px;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .card:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    .label-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff3b6b, #6b8cff);
+      color: white;
+      font-weight: 800;
+      font-size: 13px;
+      flex: 0 0 auto;
+    }
+    .name { font-weight: 700; font-size: 15px; }
+    .desc { color: var(--muted); font-size: 12.5px; line-height: 1.4; margin: 0; }
+
+    /* Each icon canvas mimics an adaptive-icon background (dark indigo flat) */
+    .icon-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 4px;
+    }
+    .icon-tile {
+      width: 96px; height: 96px;
+      border-radius: 22px;
+      background: #0E0E1F;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 6px 18px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(255,255,255,0.05) inset;
+      overflow: hidden;
+    }
+    .icon-tile.round { border-radius: 50%; }
+    .icon-tile.squircle { border-radius: 30% / 30%; }
+    .icon-tile svg { width: 100%; height: 100%; display: block; }
+
+    .size-mini {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .icon-tile.small {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .size-mini .cap { font-size: 10px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+
+    footer { padding: 32px 24px 56px; text-align: center; color: var(--muted); font-size: 13px; max-width: 760px; margin: 0 auto; line-height: 1.6; }
+    footer code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Pick a logo</h1>
+  <p>Each option is shown at launcher size (96 px) + thumbnail (48 px). The dark indigo background is what the actual adaptive icon will use behind the foreground.</p>
+</header>
+
+<div class="grid">
+
+  <!-- =================================================================
+       OPTION 1 — Capsule + Play  (currently shipped)
+       Vertical pill in the brand gradient; white play triangle centered.
+       ================================================================= -->
+  <div class="card">
+    <div class="label-row">
+      <span class="badge">1</span>
+      <div>
+        <div class="name">Capsule + Play <span style="color:var(--muted);font-weight:500;font-size:12px">(current)</span></div>
+        <p class="desc">Vertical pill with a play triangle — direct "short video" metaphor.</p>
+      </div>
+    </div>
+    <div class="icon-row">
+      <div class="icon-tile">
+        <svg viewBox="0 0 108 108">
+          <defs>
+            <linearGradient id="g1" x1="34" y1="22" x2="74" y2="86" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FF3B6B"/>
+              <stop offset="0.55" stop-color="#FF6B6B"/>
+              <stop offset="1" stop-color="#6B8CFF"/>
+            </linearGradient>
+            <radialGradient id="halo1" cx="54" cy="54" r="38" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FF3B6B" stop-opacity="0.20"/>
+              <stop offset="1" stop-color="#FF3B6B" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="54" cy="54" r="32" fill="url(#halo1)"/>
+          <path d="M 44 22 L 64 22 A 10 10 0 0 1 74 32 L 74 76 A 10 10 0 0 1 64 86 L 44 86 A 10 10 0 0 1 34 76 L 34 32 A 10 10 0 0 1 44 22 Z" fill="url(#g1)"/>
+          <path d="M 48 42 L 48 66 L 66 54 Z" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="size-mini">
+        <div class="icon-tile small">
+          <svg viewBox="0 0 108 108">
+            <path d="M 44 22 L 64 22 A 10 10 0 0 1 74 32 L 74 76 A 10 10 0 0 1 64 86 L 44 86 A 10 10 0 0 1 34 76 L 34 32 A 10 10 0 0 1 44 22 Z" fill="url(#g1)"/>
+            <path d="M 48 42 L 48 66 L 66 54 Z" fill="#fff"/>
+          </svg>
+        </div>
+        <span class="cap">48 px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================
+       OPTION 2 — Stacked feed cards
+       Three horizontal rounded rectangles staggered, top card brightest,
+       suggesting a scrollable shorts feed.
+       ================================================================= -->
+  <div class="card">
+    <div class="label-row">
+      <span class="badge">2</span>
+      <div>
+        <div class="name">Stacked feed</div>
+        <p class="desc">Three cards staggered like a scrollable feed of shorts.</p>
+      </div>
+    </div>
+    <div class="icon-row">
+      <div class="icon-tile">
+        <svg viewBox="0 0 108 108">
+          <defs>
+            <linearGradient id="g2top" x1="22" y1="38" x2="86" y2="74" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FF3B6B"/>
+              <stop offset="1" stop-color="#6B8CFF"/>
+            </linearGradient>
+          </defs>
+          <!-- back card -->
+          <rect x="26" y="22" width="56" height="20" rx="6" fill="#fff" opacity="0.18"/>
+          <!-- middle card -->
+          <rect x="20" y="44" width="68" height="22" rx="7" fill="#fff" opacity="0.35"/>
+          <!-- top (front) card with gradient + small play triangle -->
+          <rect x="14" y="66" width="80" height="26" rx="9" fill="url(#g2top)"/>
+          <path d="M 30 73 L 30 85 L 42 79 Z" fill="#fff"/>
+          <rect x="48" y="74" width="32" height="3.5" rx="1.75" fill="#fff" opacity="0.85"/>
+          <rect x="48" y="81" width="22" height="3.5" rx="1.75" fill="#fff" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="size-mini">
+        <div class="icon-tile small">
+          <svg viewBox="0 0 108 108">
+            <rect x="26" y="22" width="56" height="20" rx="6" fill="#fff" opacity="0.18"/>
+            <rect x="20" y="44" width="68" height="22" rx="7" fill="#fff" opacity="0.35"/>
+            <rect x="14" y="66" width="80" height="26" rx="9" fill="url(#g2top)"/>
+            <path d="M 30 73 L 30 85 L 42 79 Z" fill="#fff"/>
+          </svg>
+        </div>
+        <span class="cap">48 px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================
+       OPTION 3 — Bold "S" mark
+       A geometric, modern "S" letterform in gradient.
+       ================================================================= -->
+  <div class="card">
+    <div class="label-row">
+      <span class="badge">3</span>
+      <div>
+        <div class="name">Bold "S"</div>
+        <p class="desc">Geometric letterform — clean, memorable, brand-mark style.</p>
+      </div>
+    </div>
+    <div class="icon-row">
+      <div class="icon-tile">
+        <svg viewBox="0 0 108 108">
+          <defs>
+            <linearGradient id="g3" x1="32" y1="22" x2="76" y2="86" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FF3B6B"/>
+              <stop offset="0.6" stop-color="#FF6B6B"/>
+              <stop offset="1" stop-color="#6B8CFF"/>
+            </linearGradient>
+          </defs>
+          <!-- Stylized S: two interlocking thick arcs. Bold + geometric. -->
+          <path
+            d="M 70 36
+               C 70 26  62 22  54 22
+               C 42 22  34 28  34 38
+               C 34 48  44 52  54 54
+               C 64 56  74 60  74 70
+               C 74 80  66 86  54 86
+               C 44 86  36 82  34 72"
+            stroke="url(#g3)" stroke-width="12" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+      <div class="size-mini">
+        <div class="icon-tile small">
+          <svg viewBox="0 0 108 108">
+            <path
+              d="M 70 36 C 70 26  62 22  54 22 C 42 22  34 28  34 38 C 34 48  44 52  54 54 C 64 56  74 60  74 70 C 74 80  66 86  54 86 C 44 86  36 82  34 72"
+              stroke="url(#g3)" stroke-width="12" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <span class="cap">48 px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================
+       OPTION 4 — Play + Spark
+       Big play triangle with a star/sparkle in the top-right — speaks to
+       "AI-generated playback".
+       ================================================================= -->
+  <div class="card">
+    <div class="label-row">
+      <span class="badge">4</span>
+      <div>
+        <div class="name">Play + Spark</div>
+        <p class="desc">Classic play triangle with an AI sparkle on the corner.</p>
+      </div>
+    </div>
+    <div class="icon-row">
+      <div class="icon-tile">
+        <svg viewBox="0 0 108 108">
+          <defs>
+            <linearGradient id="g4" x1="28" y1="24" x2="80" y2="84" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FF3B6B"/>
+              <stop offset="1" stop-color="#6B8CFF"/>
+            </linearGradient>
+          </defs>
+          <!-- Play triangle -->
+          <path d="M 32 28 L 32 84 L 80 56 Z" fill="url(#g4)"/>
+          <!-- 4-point sparkle, top-right -->
+          <path d="M 80 22 L 84 32 L 94 36 L 84 40 L 80 50 L 76 40 L 66 36 L 76 32 Z" fill="#FFD166"/>
+          <circle cx="80" cy="36" r="2" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="size-mini">
+        <div class="icon-tile small">
+          <svg viewBox="0 0 108 108">
+            <path d="M 32 28 L 32 84 L 80 56 Z" fill="url(#g4)"/>
+            <path d="M 80 22 L 84 32 L 94 36 L 84 40 L 80 50 L 76 40 L 66 36 L 76 32 Z" fill="#FFD166"/>
+          </svg>
+        </div>
+        <span class="cap">48 px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================
+       OPTION 5 — Lightning Bolt
+       Gradient lightning — speed, AI-power, electric learning.
+       ================================================================= -->
+  <div class="card">
+    <div class="label-row">
+      <span class="badge">5</span>
+      <div>
+        <div class="name">Lightning</div>
+        <p class="desc">Bold electric bolt — speed, energy, instant generation.</p>
+      </div>
+    </div>
+    <div class="icon-row">
+      <div class="icon-tile">
+        <svg viewBox="0 0 108 108">
+          <defs>
+            <linearGradient id="g5" x1="36" y1="20" x2="76" y2="88" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FFD166"/>
+              <stop offset="0.5" stop-color="#FF6B6B"/>
+              <stop offset="1" stop-color="#6B8CFF"/>
+            </linearGradient>
+          </defs>
+          <path
+            d="M 58 18
+               L 32 58
+               L 50 58
+               L 42 90
+               L 76 46
+               L 58 46
+               L 66 18 Z"
+            fill="url(#g5)" stroke="#FFD166" stroke-width="0.5" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="size-mini">
+        <div class="icon-tile small">
+          <svg viewBox="0 0 108 108">
+            <path
+              d="M 58 18 L 32 58 L 50 58 L 42 90 L 76 46 L 58 46 L 66 18 Z"
+              fill="url(#g5)"/>
+          </svg>
+        </div>
+        <span class="cap">48 px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================
+       OPTION 6 — Open book + Play
+       Book pages with a play triangle on top — directly says "educational
+       videos / shorts from documents".
+       ================================================================= -->
+  <div class="card">
+    <div class="label-row">
+      <span class="badge">6</span>
+      <div>
+        <div class="name">Book + Play</div>
+        <p class="desc">Open book turning into a video — the exact promise.</p>
+      </div>
+    </div>
+    <div class="icon-row">
+      <div class="icon-tile">
+        <svg viewBox="0 0 108 108">
+          <defs>
+            <linearGradient id="g6" x1="22" y1="30" x2="86" y2="86" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FF3B6B"/>
+              <stop offset="1" stop-color="#6B8CFF"/>
+            </linearGradient>
+          </defs>
+          <!-- Left page -->
+          <path d="M 18 32 Q 36 22  52 30 L 52 78 Q 36 70  18 80 Z" fill="url(#g6)" opacity="0.85"/>
+          <!-- Right page -->
+          <path d="M 90 32 Q 72 22  56 30 L 56 78 Q 72 70  90 80 Z" fill="url(#g6)" opacity="0.85"/>
+          <!-- Spine highlight -->
+          <rect x="52" y="28" width="4" height="52" fill="#0E0E1F" opacity="0.5" rx="1"/>
+          <!-- Play triangle floating over the book -->
+          <circle cx="54" cy="56" r="14" fill="#fff"/>
+          <path d="M 49 49 L 49 63 L 61 56 Z" fill="#FF3B6B"/>
+        </svg>
+      </div>
+      <div class="size-mini">
+        <div class="icon-tile small">
+          <svg viewBox="0 0 108 108">
+            <path d="M 18 32 Q 36 22  52 30 L 52 78 Q 36 70  18 80 Z" fill="url(#g6)" opacity="0.85"/>
+            <path d="M 90 32 Q 72 22  56 30 L 56 78 Q 72 70  90 80 Z" fill="url(#g6)" opacity="0.85"/>
+            <circle cx="54" cy="56" r="14" fill="#fff"/>
+            <path d="M 49 49 L 49 63 L 61 56 Z" fill="#FF3B6B"/>
+          </svg>
+        </div>
+        <span class="cap">48 px</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Reply with the option number (e.g. <code>option 3</code>) and I'll wire it into the APK + rebuild.
+</footer>
+
+</body>
+</html>
