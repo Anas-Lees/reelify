@@ -95,14 +95,18 @@
         0 0 0 1px rgba(255,255,255,0.05) inset;
       overflow: hidden;
     }
-    /* Vibrant gradient bg used by Option 15 — pink/coral/amber/blue mesh */
+    /* Instagram-style radial gradient — yellow at the lower-left, sweeping
+       through orange / hot-pink to deep purple/indigo at the top-right.
+       Used by Option 15 (and what the eventual adaptive-icon background
+       drawable will mirror in Android). */
     .icon-tile.colorful {
       background:
-        radial-gradient(60% 60% at 18% 18%, #FF3B6B 0%, transparent 60%),
-        radial-gradient(60% 60% at 86% 18%, #FFD166 0%, transparent 55%),
-        radial-gradient(70% 70% at 90% 90%, #6B8CFF 0%, transparent 60%),
-        radial-gradient(60% 60% at 14% 86%, #845EF7 0%, transparent 55%),
-        #18152a;
+        radial-gradient(circle at 28% 108%,
+          #FEDA77 0%,
+          #F58529 22%,
+          #DD2A7B 50%,
+          #8134AF 76%,
+          #515BD4 100%);
     }
     .icon-tile.round { border-radius: 50%; }
     .icon-tile.squircle { border-radius: 30% / 30%; }
@@ -766,9 +770,15 @@
             fill="url(#boltGrad)"
             stroke="#FFD166" stroke-width="0.8" stroke-linejoin="round"/>
 
-          <!-- White play badge sitting on the cap face -->
-          <circle cx="54" cy="50" r="13" fill="#ffffff"/>
-          <path d="M 49 43 L 49 57 L 62 50 Z" fill="#FF3B6B"/>
+          <!-- Play disc lying flat on the cap surface — rendered as an
+               ellipse with the same 42:20 aspect as the rhombus board, and
+               a play triangle whose left edge is foreshortened vertically
+               to match the perspective. Subtle shadow underneath grounds
+               it onto the cap. -->
+          <ellipse cx="54" cy="53" rx="15" ry="7.2" fill="#000" opacity="0.22"/>
+          <ellipse cx="54" cy="50" rx="15" ry="7" fill="#ffffff"/>
+          <ellipse cx="54" cy="49" rx="15" ry="6.8" fill="none" stroke="#ffffff" stroke-width="0.6" opacity="0.7"/>
+          <path d="M 47.5 46.8 L 47.5 53.2 L 61.5 50 Z" fill="#DD2A7B"/>
         </svg>
       </div>
       <div class="size-mini">
@@ -777,8 +787,9 @@
             <path d="M 36 60 L 36 76 Q 54 86 72 76 L 72 60 L 54 70 Z" fill="url(#capUnder)"/>
             <path d="M 54 30 L 96 50 L 54 70 L 12 50 Z" fill="url(#capBoard)"/>
             <path d="M 92 50 L 88 60 L 96 60 L 90 76 L 100 62 L 92 62 L 96 50 Z" fill="url(#boltGrad)"/>
-            <circle cx="54" cy="50" r="13" fill="#ffffff"/>
-            <path d="M 49 43 L 49 57 L 62 50 Z" fill="#FF3B6B"/>
+            <ellipse cx="54" cy="53" rx="15" ry="7.2" fill="#000" opacity="0.22"/>
+            <ellipse cx="54" cy="50" rx="15" ry="7" fill="#ffffff"/>
+            <path d="M 47.5 46.8 L 47.5 53.2 L 61.5 50 Z" fill="#DD2A7B"/>
           </svg>
         </div>
         <span class="cap">48 px</span>
