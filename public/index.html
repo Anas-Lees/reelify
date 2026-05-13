@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260513f" />
+  <link rel="stylesheet" href="styles.css?v=20260513g" />
   <script>
     // Global error visibility, but only for ACTUAL crashes — not for handled
     // network/quota errors (those are logged + shown via clean toasts elsewhere).
@@ -65,7 +65,7 @@
           <span class="dot"></span>
         </div>
         <h1 data-i18n="auth_title">Welcome to Edu Shorts</h1>
-        <p class="sub" data-i18n="auth_sub">Sign in to keep your library and saved reels synced across devices.</p>
+        <p class="sub" data-i18n="auth_sub">Sign in to keep your library and saved shorts synced across devices.</p>
         <form id="authForm" class="auth-form" autocomplete="on">
           <input id="authEmail" type="email" required autocomplete="email"
             data-i18n-placeholder="auth_email" placeholder="Email" />
@@ -112,7 +112,7 @@
 
         <div class="library-tabs">
           <button class="lib-tab active" data-tab="subjects" data-i18n="tab_subjects">Subjects</button>
-          <button class="lib-tab" data-tab="saved" data-i18n="tab_saved">Saved reels</button>
+          <button class="lib-tab" data-tab="saved" data-i18n="tab_saved">Saved shorts</button>
         </div>
 
         <div class="library-tab-panel" data-tab-panel="subjects">
@@ -180,7 +180,7 @@
             <ellipse cx="78" cy="76" rx="6" ry="3" fill="#FFC2CD" opacity="0.6"/>
           </svg>
         </div>
-        <h1 data-i18n="hero_title">Drop a file. Get reels.</h1>
+        <h1 data-i18n="hero_title">Drop a file. Get shorts.</h1>
 
         <label class="drop-zone" id="dropZone">
           <input type="file" id="fileInput" hidden
@@ -324,14 +324,14 @@
           </button>
           <div id="statsBadge" class="stats-badge">
             <span class="sb-num" id="statsReels">0</span>
-            <span class="sb-label" data-i18n="stats_reels">reels watched</span>
+            <span class="sb-label" data-i18n="stats_reels">shorts watched</span>
             <span class="sb-sep">·</span>
             <span class="sb-num" id="statsPerfect">0</span>
             <span class="sb-label" data-i18n="stats_perfect">perfect</span>
           </div>
         </div>
 
-        <button id="generateBtn" class="primary" disabled data-i18n="generate">Generate Reels</button>
+        <button id="generateBtn" class="primary" disabled data-i18n="generate">Generate Shorts</button>
         <p class="hint" data-i18n="tip_main">Tap · swipe · ❤</p>
       </div>
     </section>
@@ -398,7 +398,7 @@
       <div class="modal-card">
         <button class="modal-close" data-close aria-label="Close">×</button>
         <h3 class="modal-title" data-i18n="paste_text_title">Paste your text</h3>
-        <p class="modal-sub" data-i18n="paste_text_sub">Notes, an article, anything. The AI cleans it up and turns it into reels.</p>
+        <p class="modal-sub" data-i18n="paste_text_sub">Notes, an article, anything. The AI cleans it up and turns it into shorts.</p>
         <textarea id="pasteInput" rows="9" data-i18n-placeholder="paste_placeholder" placeholder="Paste anything here…"></textarea>
         <button id="pasteSubmit" class="primary" data-i18n="paste_submit">Generate from text</button>
       </div>
@@ -422,7 +422,7 @@
       <div class="modal-backdrop" data-close></div>
       <div class="modal-card saved-card">
         <button class="modal-close" data-close aria-label="Close">×</button>
-        <h3 class="modal-title" data-i18n="saved_reels">Saved reels</h3>
+        <h3 class="modal-title" data-i18n="saved_reels">Saved shorts</h3>
         <div id="savedList" class="saved-list"></div>
         <p class="modal-sub" id="savedEmpty" data-i18n="saved_empty">Tap ★ on any reel to save it here.</p>
       </div>
@@ -515,6 +515,6 @@
     </nav>
   </main>
 
-  <script src="app.js?v=20260513f"></script>
+  <script src="app.js?v=20260513g"></script>
 </body>
 </html>

@@ -153,11 +153,11 @@ const I18N = {
     // Top bar / shell
     library: "Library", settings: "Settings", create: "Create", cancel: "Cancel", remove: "Remove",
     // Upload screen hero
-    hero_title: "Drop a file. Get reels.",
+    hero_title: "Drop a file. Get shorts.",
     hero_sub: "",
     drop_text: "Drop a file",
     drop_size: "PDF · Word · slides · images · text",
-    generate: "Generate Reels",
+    generate: "Generate Shorts",
     tip_main: "Tap · swipe · ❤",
     tip_reels: "Tap edges to skip · double-tap to ❤ · scroll for next",
     // Customize panel labels
@@ -196,7 +196,7 @@ const I18N = {
     new_subject_placeholder: "Subject name (e.g. Biology)",
     chapter_title_placeholder: "Chapter title — optional",
     // Stats
-    saved: "Saved", stats_reels: "reels watched", stats_perfect: "perfect",
+    saved: "Saved", stats_reels: "shorts watched", stats_perfect: "perfect",
     // Settings note
     settings_note: "App language only changes the interface — narration language is set per upload.",
     // Library
@@ -207,8 +207,8 @@ const I18N = {
     delete_chapter_confirm: 'Delete "{title}"?',
     upload_for_subject: "Upload your next chapter for {title}",
     // Saved gallery
-    saved_reels: "Saved reels",
-    saved_empty: "Tap ★ on any reel to save it here.",
+    saved_reels: "Saved shorts",
+    saved_empty: "Tap ★ on any short to save it here.",
     // Quiz
     quiz_title_card: "Quick Quiz", quiz_subtitle: "Test what you just learned",
     quiz_correct: "✓ Correct.", quiz_incorrect: "✗ Not quite.",
@@ -217,7 +217,7 @@ const I18N = {
     score_perfect: "Perfect score! You absorbed it all.",
     score_great: "Great work — you really listened.",
     score_decent: "Not bad. A second pass will lock it in.",
-    score_keep_going: "Solid effort. Re-watch the reels and try again.",
+    score_keep_going: "Solid effort. Re-watch the shorts and try again.",
     streak_in_a_row: "in a row",
     // Ask AI
     ask_title: "Ask anything", ask_about: "About: {title}",
@@ -228,13 +228,13 @@ const I18N = {
     loading_reading: "Reading your file…",
     loading_reading_sub: "The AI is finding the gold inside.",
     loading_grouping: "Grouping the ideas…",
-    loading_grouping_sub: "Packing related bits into the same reel.",
+    loading_grouping_sub: "Packing related bits into the same short.",
     loading_writing: "Writing the scripts…",
     loading_writing_sub: "Punchy hooks, easy listening.",
     loading_voices: "Casting voices…",
-    loading_voices_sub: "Each reel gets its own narrator.",
+    loading_voices_sub: "Each short gets its own narrator.",
     loading_almost: "Almost there…",
-    loading_almost_sub: "Cooking up the reel structure.",
+    loading_almost_sub: "Cooking up the short structure.",
     // Toasts
     toast_shared: "Shared",
     toast_copied: "Copied to clipboard",
@@ -247,7 +247,7 @@ const I18N = {
     // Errors
     err_title: "Something went wrong",
     err_unknown: "Unknown error",
-    err_no_reels: "No reels were generated",
+    err_no_reels: "No shorts were generated",
     err_upload_failed: "Upload failed",
     err_type_first: "Type a subject name first",
     // Format / podcast / surprise
@@ -265,7 +265,7 @@ const I18N = {
     profile_avatar_only_images: "Pick an image file",
     paste_text: "Or paste text instead",
     paste_text_title: "Paste your text",
-    paste_text_sub: "Notes, an article, anything. The AI cleans it up and turns it into reels.",
+    paste_text_sub: "Notes, an article, anything. The AI cleans it up and turns it into shorts.",
     paste_placeholder: "Paste anything here — notes, an article, even rough thoughts. The AI fixes typos and structures it.",
     paste_submit: "Generate from text",
     paste_too_short: "Add a bit more text first",
@@ -273,7 +273,7 @@ const I18N = {
     checkpoint_label: "Quick check",
     // Auth
     auth_title: "Welcome to Edu Shorts",
-    auth_sub: "Sign in to keep your library and saved reels synced across devices.",
+    auth_sub: "Sign in to keep your library and saved shorts synced across devices.",
     auth_email: "Email",
     auth_password: "Password (6+ chars)",
     auth_name: "Display name (optional)",
@@ -285,17 +285,17 @@ const I18N = {
     auth_creating: "Creating account…",
     // Library tabs
     tab_subjects: "Subjects",
-    tab_saved: "Saved reels",
+    tab_saved: "Saved shorts",
   },
 
   ar: {
     library: "المكتبة", settings: "الإعدادات", create: "إنشاء", cancel: "إلغاء", remove: "إزالة",
 
-    hero_title: "ضع ملفًا. واستلم ريلز.",
+    hero_title: "ضع ملفًا. واستلم شورتس.",
     hero_sub: "",
     drop_text: "ضع ملفًا",
     drop_size: "PDF · Word · شرائح · صور · نص",
-    generate: "إنشاء الريلز",
+    generate: "إنشاء الشورتس",
     tip_main: "انقر · مرّر · ❤",
     tip_reels: "انقر الحواف للتخطي · انقر مرتين لـ ❤ · مرّر للتالي",
 
@@ -333,7 +333,7 @@ const I18N = {
     new_subject_placeholder: "اسم المادة (مثلاً «الأحياء»)",
     chapter_title_placeholder: "عنوان الفصل — اختياري",
 
-    saved: "محفوظ", stats_reels: "ريلز شُوهدت", stats_perfect: "إجابات كاملة",
+    saved: "محفوظ", stats_reels: "شورتس شُوهدت", stats_perfect: "إجابات كاملة",
 
     settings_note: "لغة التطبيق تغيّر الواجهة فقط — لغة الراوي تُختار عند الرفع.",
 
@@ -344,8 +344,8 @@ const I18N = {
     delete_chapter_confirm: "حذف «{title}»؟",
     upload_for_subject: "ارفع فصلك التالي إلى {title}",
 
-    saved_reels: "الريلز المحفوظة",
-    saved_empty: "انقر ★ على أي ريل لحفظه هنا.",
+    saved_reels: "الشورتس المحفوظة",
+    saved_empty: "انقر ★ على أي شورت لحفظه هنا.",
 
     quiz_title_card: "اختبار سريع", quiz_subtitle: "اختبر ما تعلمته للتو",
     quiz_correct: "✓ صحيح.", quiz_incorrect: "✗ ليس تماماً.",
@@ -354,7 +354,7 @@ const I18N = {
     score_perfect: "علامة كاملة! استوعبت كل شيء.",
     score_great: "عمل رائع — أنصت جيدًا.",
     score_decent: "ليس سيئاً. مرور ثانٍ يرسّخها.",
-    score_keep_going: "محاولة جيدة. أعد مشاهدة الريلز وحاول مجدداً.",
+    score_keep_going: "محاولة جيدة. أعد مشاهدة الشورتس وحاول مجدداً.",
     streak_in_a_row: "متتالية",
 
     ask_title: "اسأل أي شيء", ask_about: "بشأن: {title}",
@@ -365,13 +365,13 @@ const I18N = {
     loading_reading: "أقرأ ملفك…",
     loading_reading_sub: "الذكاء الاصطناعي يبحث عن الذهب بالداخل.",
     loading_grouping: "أجمع الأفكار…",
-    loading_grouping_sub: "أحزم القطع المرتبطة في ريل واحد.",
+    loading_grouping_sub: "أحزم القطع المرتبطة في شورت واحد.",
     loading_writing: "أكتب النصوص…",
     loading_writing_sub: "افتتاحيات قوية، استماع مريح.",
     loading_voices: "أختار الأصوات…",
-    loading_voices_sub: "كل ريل يحصل على راوٍ خاص.",
+    loading_voices_sub: "كل شورت يحصل على راوٍ خاص.",
     loading_almost: "اقتربنا…",
-    loading_almost_sub: "أُعدّ بنية الريلز.",
+    loading_almost_sub: "أُعدّ بنية الشورتس.",
 
     toast_shared: "تمت المشاركة",
     toast_copied: "نُسخ إلى الحافظة",
@@ -384,7 +384,7 @@ const I18N = {
 
     err_title: "حدث خطأ ما",
     err_unknown: "خطأ غير معروف",
-    err_no_reels: "لم يتم إنشاء ريلز",
+    err_no_reels: "لم يتم إنشاء شورتس",
     err_upload_failed: "فشل الرفع",
     err_type_first: "اكتب اسم المادة أولاً",
     // Format / podcast / surprise
@@ -401,13 +401,13 @@ const I18N = {
     profile_avatar_only_images: "اختر ملف صورة",
     paste_text: "أو ألصق نصاً بدلاً من ذلك",
     paste_text_title: "ألصق نصك",
-    paste_text_sub: "ملاحظات، مقال، أي شيء. الذكاء يصححه ويحوّله إلى ريلز.",
+    paste_text_sub: "ملاحظات، مقال، أي شيء. الذكاء يصححه ويحوّله إلى شورتس.",
     paste_placeholder: "ألصق أي شيء هنا — ملاحظات، مقال، حتى أفكار غير منظمة. الذكاء يصلح الأخطاء وينظمها.",
     paste_submit: "أنشئ من النص",
     paste_too_short: "أضف مزيداً من النص أولاً",
     checkpoint_label: "تحقّق سريع",
     auth_title: "مرحباً بك في Edu Shorts",
-    auth_sub: "سجّل دخول لحفظ مكتبتك وريلزاتك ومزامنتها عبر الأجهزة.",
+    auth_sub: "سجّل دخول لحفظ مكتبتك وشورتساتك ومزامنتها عبر الأجهزة.",
     auth_email: "البريد الإلكتروني",
     auth_password: "كلمة المرور (٦ أحرف على الأقل)",
     auth_name: "الاسم الظاهر (اختياري)",
@@ -418,7 +418,7 @@ const I18N = {
     auth_signing_in: "جارٍ تسجيل الدخول…",
     auth_creating: "جارٍ إنشاء الحساب…",
     tab_subjects: "المواد",
-    tab_saved: "الريلز المحفوظة",
+    tab_saved: "الشورتس المحفوظة",
   },
 };
 
