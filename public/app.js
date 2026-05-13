@@ -154,11 +154,11 @@ const I18N = {
     library: "Library", settings: "Settings", create: "Create", cancel: "Cancel", remove: "Remove",
     // Upload screen hero
     hero_title: "Drop a file. Get reels.",
-    hero_sub: "PDF, Word, PowerPoint, images, text — the AI reads it and packs it into bite-size scrolling reels with AI visuals, voiceover and synced captions.",
-    drop_text: "Tap or drop a file here",
-    drop_size: "Up to 100 MB",
+    hero_sub: "",
+    drop_text: "Drop a file",
+    drop_size: "PDF · Word · slides · images · text",
     generate: "Generate Reels",
-    tip_main: "Tap to pause · double-tap to ❤ · scroll for next",
+    tip_main: "Tap · swipe · ❤",
     tip_reels: "Tap edges to skip · double-tap to ❤ · scroll for next",
     // Customize panel labels
     label_vibe: "Vibe", label_look: "Look", label_length: "Length", label_pace: "Pace",
@@ -182,8 +182,9 @@ const I18N = {
     // Voice + auto-advance
     voice_auto: "🤖 AI picks",
     autoadvance_on: "▶ On", autoadvance_off: "⏸ Off",
-    // More-options disclosure
-    more_options: "More options",
+    // Style disclosure (was "More options")
+    style: "Style",
+    paste_text: "Paste text",
     // App style
     style_default: "🌑 Default", style_editorial: "📰 Editorial",
     style_glass: "💎 Liquid Glass", style_riso: "📜 Risograph", style_pastel: "🌸 Soft Pastel",
@@ -291,11 +292,11 @@ const I18N = {
     library: "المكتبة", settings: "الإعدادات", create: "إنشاء", cancel: "إلغاء", remove: "إزالة",
 
     hero_title: "أَفلِت ملفًا. واستلم ريلز.",
-    hero_sub: "PDF أو Word أو PowerPoint أو صور أو نصوص — يقرأها الذكاء الاصطناعي ويحوّلها إلى ريلز عمودية بصور ذكية وتعليق صوتي ونصوص متزامنة.",
-    drop_text: "انقر أو أَفلِت ملفًا هنا",
-    drop_size: "حتى 100 ميجابايت",
+    hero_sub: "",
+    drop_text: "أَفلِت ملفًا",
+    drop_size: "PDF · Word · شرائح · صور · نص",
     generate: "إنشاء الريلز",
-    tip_main: "انقر للإيقاف · انقر مرتين لـ ❤ · مرّر للتالي",
+    tip_main: "انقر · مرّر · ❤",
     tip_reels: "انقر الحواف للتخطي · انقر مرتين لـ ❤ · مرّر للتالي",
 
     label_vibe: "الطابع", label_look: "المظهر", label_length: "الطول", label_pace: "السرعة",
@@ -320,7 +321,8 @@ const I18N = {
     voice_auto: "🤖 يختار الذكاء",
     autoadvance_on: "▶ تشغيل", autoadvance_off: "⏸ إيقاف",
 
-    more_options: "خيارات إضافية",
+    style: "النمط",
+    paste_text: "ألصق نصًا",
     style_default: "🌑 افتراضي", style_editorial: "📰 مجلة",
     style_glass: "💎 زجاج سائل", style_riso: "📜 طباعة ريسو", style_pastel: "🌸 باستيل ناعم",
 

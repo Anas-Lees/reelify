@@ -293,79 +293,96 @@ html[dir="rtl"] .auth-error { text-align: center; }
 }
 
 h1 {
-  font-size: 28px;
-  margin: 0 0 8px;
-  letter-spacing: -0.02em;
+  font-size: 32px;
+  margin: 0 0 22px;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  font-weight: 800;
   background: linear-gradient(135deg, #fff 0%, #b0b0ff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
+/* The hero subtitle is intentionally empty on the upload screen — keep
+   the selector so themed overrides still apply elsewhere (modals, etc.). */
 .sub {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
   margin: 0 0 24px;
 }
+.sub:empty { display: none; }
 
 .drop-zone {
   display: block;
-  border: 2px dashed rgba(255,255,255,0.12);
-  border-radius: 14px;
-  padding: 28px 16px;
+  border: 2px dashed rgba(255,255,255,0.14);
+  border-radius: 22px;
+  padding: 44px 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  background: rgba(255,255,255,0.02);
+  transition: border-color 0.25s ease, background 0.25s ease, transform 0.2s ease;
+  background: rgba(255,255,255,0.025);
 }
 .drop-zone:hover, .drop-zone.drag {
   border-color: var(--accent);
-  background: rgba(255,59,107,0.05);
+  background: rgba(255,59,107,0.06);
   transform: translateY(-1px);
 }
 .drop-zone.has-file {
   border-color: var(--accent-2);
-  background: rgba(107,140,255,0.08);
+  background: rgba(107,140,255,0.09);
 }
 .dz-icon {
-  width: 48px; height: 48px;
+  width: 64px; height: 64px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.06);
-  font-size: 28px; line-height: 48px;
-  margin: 0 auto 10px;
-  color: var(--fg);
+  background: linear-gradient(135deg, rgba(255,59,107,0.18), rgba(107,140,255,0.18));
+  font-size: 34px;
+  line-height: 64px;
+  margin: 0 auto 14px;
+  color: white;
+  font-weight: 300;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset;
 }
 .dz-text {
-  font-weight: 500;
-  font-size: 15px;
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.01em;
 }
 .dz-sub {
   color: var(--muted);
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: 12.5px;
+  margin-top: 6px;
+  letter-spacing: 0.02em;
 }
 
 .primary {
   display: block;
   width: 100%;
-  margin-top: 18px;
-  padding: 14px 16px;
+  margin-top: 22px;
+  padding: 18px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 16px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
   color: white;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.2s ease;
+  transition: transform 0.15s ease, opacity 0.2s ease, box-shadow 0.2s ease;
   letter-spacing: 0.01em;
+  box-shadow: 0 8px 24px rgba(255,59,107,0.22), 0 0 0 1px rgba(255,255,255,0.04) inset;
 }
-.primary:hover:not(:disabled) { transform: translateY(-1px); }
-.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(255,59,107,0.30), 0 0 0 1px rgba(255,255,255,0.06) inset;
+}
+.primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
 
 .hint {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--muted);
-  margin: 14px 0 0;
+  margin: 16px 0 0;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
 }
 
 /* ----- Customization chips (pre-upload) ----- */
@@ -419,49 +436,83 @@ h1 {
   box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 4px 14px rgba(255,59,107,0.2);
 }
 
-/* "More options" disclosure — wraps the secondary chip rows so the upload
-   screen looks calm by default while keeping every control one tap away. */
-.cu-more {
-  margin-top: 4px;
+/* The narration-language row is the only chip group visible by default.
+   Two big chips, centered, BIG type — feels like a real bilingual choice
+   rather than a setting buried in a menu. */
+.cu-lang-row {
+  margin-top: 22px;
+  align-items: center;
 }
-.cu-more[open] { margin-top: 8px; }
+.cu-chips-lang {
+  justify-content: center;
+  gap: 10px;
+}
+.cu-chip-lang {
+  padding: 12px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 999px;
+  letter-spacing: 0;
+}
+
+/* "Style" disclosure — sits at the bottom as a subtle, centered control.
+   When open, the chip rows inside use the standard .cu-chip styling. */
+.cu-more {
+  margin-top: 18px;
+  text-align: center;
+}
 .cu-more > summary {
   list-style: none;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 14px;
+  padding: 10px 18px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.85);
-  font-size: 13px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.025);
+  color: rgba(255,255,255,0.75);
+  font-size: 13.5px;
   font-weight: 600;
+  letter-spacing: 0.02em;
   user-select: none;
   -webkit-user-select: none;
-  width: max-content;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
 }
 .cu-more > summary::-webkit-details-marker { display: none; }
-.cu-more > summary:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.2);
+.cu-more > summary:hover,
+.cu-more[open] > summary {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.18);
+  color: white;
 }
-.cu-more-icon { color: #ffd166; font-size: 14px; }
 .cu-more-caret {
-  margin-left: 2px;
+  font-size: 11px;
   color: rgba(255,255,255,0.55);
-  transition: transform 0.2s ease;
+  transition: transform 0.25s ease;
   display: inline-block;
 }
 .cu-more[open] > summary > .cu-more-caret { transform: rotate(-180deg); }
 .cu-more > .cu-row {
-  margin-top: 12px;
+  margin-top: 14px;
+  text-align: left;
 }
-.cu-more[open] > .cu-row:first-of-type { margin-top: 14px; }
-/* In RTL (Arabic) the disclosure should still sit on the leading edge */
-html[dir="rtl"] .cu-more > summary { margin-right: 0; margin-left: auto; }
+.cu-more[open] > .cu-row:first-of-type { margin-top: 18px; }
+html[dir="rtl"] .cu-more > .cu-row { text-align: right; }
+
+/* Paste-text — drop the "ghost button" chrome on the upload screen; it's
+   a secondary affordance, not a primary one. Keep it readable but quiet. */
+.paste-btn {
+  margin: 12px auto 0;
+  padding: 8px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  border-color: rgba(255,255,255,0.10) !important;
+  color: rgba(255,255,255,0.7) !important;
+}
+.paste-btn .ge-icon { color: rgba(255,255,255,0.6); }
+.paste-btn:hover { background: rgba(255,255,255,0.05) !important; color: white !important; }
 
 /* Custom-text input that drops below a chip row */
 .cu-custom-input {

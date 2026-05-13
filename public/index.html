@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260513a" />
+  <link rel="stylesheet" href="styles.css?v=20260513b" />
   <script>
     // Global error visibility, but only for ACTUAL crashes — not for handled
     // network/quota errors (those are logged + shown via clean toasts elsewhere).
@@ -181,27 +181,41 @@
           </svg>
         </div>
         <h1 data-i18n="hero_title">Drop a file. Get reels.</h1>
-        <p class="sub" data-i18n="hero_sub">PDF, Word, PowerPoint, images, text — the AI reads it and packs it into bite-size scrolling reels with AI visuals, voiceover and synced captions.</p>
 
         <label class="drop-zone" id="dropZone">
           <input type="file" id="fileInput" hidden
             accept=".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,image/*" />
           <div class="dz-inner">
             <div class="dz-icon">+</div>
-            <div class="dz-text" id="dzText" data-i18n="drop_text">Tap or drop a file here</div>
-            <div class="dz-sub" data-i18n="drop_size">Up to 100&nbsp;MB</div>
+            <div class="dz-text" id="dzText" data-i18n="drop_text">Drop a file</div>
+            <div class="dz-sub" data-i18n="drop_size">PDF · Word · slides · images · text</div>
           </div>
         </label>
 
         <button id="pasteTextBtn" class="ghost-btn paste-btn" type="button">
           <span class="ge-icon">📝</span>
-          <span class="ge-text" data-i18n="paste_text">Or paste text instead</span>
+          <span class="ge-text" data-i18n="paste_text">Paste text</span>
         </button>
 
         <div class="customize" id="customize">
-          <!-- Most-used controls stay visible: pick a vibe + the narration
-               language. Everything else is one tap away behind "More options"
-               so the upload screen doesn't feel overwhelming. -->
+          <!-- Only the language picker is visible by default — two big chips,
+               clean and bilingual-by-design. Everything else (vibe, look,
+               length, voice…) is one tap away behind the "Style" disclosure. -->
+          <div class="cu-row cu-lang-row">
+            <div class="cu-chips cu-chips-lang" data-name="language">
+              <button class="cu-chip cu-chip-lang" data-val="en">🇬🇧 English</button>
+              <button class="cu-chip cu-chip-lang" data-val="ar">🇸🇦 العربية</button>
+            </div>
+          </div>
+
+          <!-- "Style" disclosure — every secondary control lives in here so
+               the upload screen feels calm. All chip groups inside remain
+               bound by data-name=… so the existing JS picks them up for free. -->
+          <details class="cu-more">
+            <summary class="cu-more-toggle">
+              <span data-i18n="style">Style</span>
+              <span class="cu-more-caret" aria-hidden="true">▾</span>
+            </summary>
           <div class="cu-row">
             <div class="cu-label" data-i18n="label_vibe">Vibe</div>
             <div class="cu-chips" data-name="vibe">
@@ -216,36 +230,6 @@
               data-i18n-placeholder="vibe_custom_ph"
               placeholder="e.g. Attack on Titan style — dramatic anime monologues" />
           </div>
-          <div class="cu-row">
-            <div class="cu-label" data-i18n="label_language">Narration language</div>
-            <div class="cu-chips" data-name="language">
-              <button class="cu-chip" data-val="en">🇬🇧 English</button>
-              <button class="cu-chip" data-val="es">🇪🇸 Español</button>
-              <button class="cu-chip" data-val="fr">🇫🇷 Français</button>
-              <button class="cu-chip" data-val="de">🇩🇪 Deutsch</button>
-              <button class="cu-chip" data-val="it">🇮🇹 Italiano</button>
-              <button class="cu-chip" data-val="pt">🇵🇹 Português</button>
-              <button class="cu-chip" data-val="ja">🇯🇵 日本語</button>
-              <button class="cu-chip" data-val="ko">🇰🇷 한국어</button>
-              <button class="cu-chip" data-val="ar">🇸🇦 العربية</button>
-              <button class="cu-chip" data-val="hi">🇮🇳 हिन्दी</button>
-              <button class="cu-chip" data-val="zh">🇨🇳 中文</button>
-              <button class="cu-chip" data-val="custom" data-i18n="chip_custom">✏ Custom</button>
-            </div>
-            <input class="cu-custom-input hidden" data-name="language" maxlength="120"
-              data-i18n-placeholder="lang_custom_ph"
-              placeholder="e.g. Pirate English, Old English, Shakespearean" />
-          </div>
-
-          <!-- Advanced settings — one click to reveal the full set. All chip
-               groups inside remain bound by data-name=… so the existing JS
-               binding picks them up without changes. -->
-          <details class="cu-more">
-            <summary class="cu-more-toggle">
-              <span class="cu-more-icon" aria-hidden="true">⚙</span>
-              <span data-i18n="more_options">More options</span>
-              <span class="cu-more-caret" aria-hidden="true">▾</span>
-            </summary>
           <div class="cu-row">
             <div class="cu-label" data-i18n="label_look">Look</div>
             <div class="cu-chips" data-name="imageStyle">
@@ -367,7 +351,7 @@
         </div>
 
         <button id="generateBtn" class="primary" disabled data-i18n="generate">Generate Reels</button>
-        <p class="hint" data-i18n="tip_main">Tap to pause · double-tap to ❤ · scroll for next</p>
+        <p class="hint" data-i18n="tip_main">Tap · swipe · ❤</p>
       </div>
     </section>
 
@@ -550,6 +534,6 @@
     </nav>
   </main>
 
-  <script src="app.js?v=20260513a"></script>
+  <script src="app.js?v=20260513b"></script>
 </body>
 </html>
