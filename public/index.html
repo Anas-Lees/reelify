@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260513d" />
+  <link rel="stylesheet" href="styles.css?v=20260513e" />
   <script>
     // Global error visibility, but only for ACTUAL crashes — not for handled
     // network/quota errors (those are logged + shown via clean toasts elsewhere).
@@ -326,7 +326,9 @@
           <div class="cu-label" data-i18n="label_save_to">Save to subject</div>
           <div class="cu-chips" id="subjectChips" data-name="subject">
             <button class="cu-chip" data-val="" data-i18n="subj_dont_save">🗑 Don't save</button>
-            <button class="cu-chip cu-new-subject" data-val="__new" data-i18n="subj_new">+ New subject</button>
+            <!-- "+ New subject" lives in the Library page now; this row only
+                 shows existing subjects + "Don't save" so the upload screen
+                 stays focused on the file/Generate flow. -->
           </div>
           <input class="cu-custom-input hidden" id="newSubjectInput" maxlength="80"
             data-i18n-placeholder="new_subject_placeholder"
@@ -519,11 +521,11 @@
         </span>
         <span class="bn-label" data-i18n="library">Library</span>
       </button>
-      <button class="bn-tab" data-target="upload" aria-label="Home">
+      <button class="bn-tab" data-target="upload" aria-label="Generate">
         <span class="bn-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
         </span>
-        <span class="bn-label" data-i18n="nav_home">Home</span>
+        <span class="bn-label" data-i18n="nav_home">Generate</span>
       </button>
       <button class="bn-tab" data-target="settings" aria-label="Settings">
         <span class="bn-icon">
@@ -534,6 +536,6 @@
     </nav>
   </main>
 
-  <script src="app.js?v=20260513d"></script>
+  <script src="app.js?v=20260513e"></script>
 </body>
 </html>

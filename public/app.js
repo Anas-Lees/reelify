@@ -258,7 +258,7 @@ const I18N = {
     surprise_toast: "🎲 Random preset rolled",
     tap_to_start: "Tap to start",
     // Paste text
-    nav_home: "Home",
+    nav_home: "Generate",
     profile_name_ph: "Display name",
     profile_saved: "Profile saved",
     profile_avatar_too_big: "Image must be under 5 MB",
@@ -291,9 +291,9 @@ const I18N = {
   ar: {
     library: "المكتبة", settings: "الإعدادات", create: "إنشاء", cancel: "إلغاء", remove: "إزالة",
 
-    hero_title: "أَفلِت ملفًا. واستلم ريلز.",
+    hero_title: "ضع ملفًا. واستلم ريلز.",
     hero_sub: "",
-    drop_text: "أَفلِت ملفًا",
+    drop_text: "ضع ملفًا",
     drop_size: "PDF · Word · شرائح · صور · نص",
     generate: "إنشاء الريلز",
     tip_main: "انقر · مرّر · ❤",
@@ -301,7 +301,7 @@ const I18N = {
 
     label_vibe: "الطابع", label_look: "المظهر", label_length: "الطول", label_pace: "السرعة",
     label_quiz: "الاختبار", label_language: "لغة الراوي", label_voice: "الصوت",
-    label_auto_advance: "تشغيل تلقائي للتالي", label_save_to: "حفظ في موضوع",
+    label_auto_advance: "تشغيل تلقائي للتالي", label_save_to: "حفظ في مادة",
     label_app_style: "نمط التطبيق", label_app_theme: "ثيم التطبيق", label_app_lang: "لغة التطبيق",
 
     vibe_educational: "⚡ تعليمي", vibe_fun: "🎉 ممتع", vibe_dramatic: "🎭 درامي",
@@ -328,19 +328,19 @@ const I18N = {
 
     apptheme_dark: "🌙 داكن", apptheme_light: "☀ فاتح", apptheme_auto: "🎚 تلقائي",
 
-    subj_dont_save: "🗑 لا تحفظ", subj_new: "+ موضوع جديد",
-    new_subject_short: "موضوع جديد",
-    new_subject_placeholder: "اسم الموضوع (مثلاً «الأحياء»)",
+    subj_dont_save: "🗑 لا تحفظ", subj_new: "+ مادة جديدة",
+    new_subject_short: "مادة جديدة",
+    new_subject_placeholder: "اسم المادة (مثلاً «الأحياء»)",
     chapter_title_placeholder: "عنوان الفصل — اختياري",
 
     saved: "محفوظ", stats_reels: "ريلز شُوهدت", stats_perfect: "إجابات كاملة",
 
     settings_note: "لغة التطبيق تغيّر الواجهة فقط — لغة الراوي تُختار عند الرفع.",
 
-    library_empty: "لا توجد مواضيع بعد. انقر «+ موضوع جديد» للبدء.",
+    library_empty: "لا توجد مواد بعد. انقر «+ مادة جديدة» للبدء.",
     chapters: "فصول", chapter: "فصل",
     no_chapters: "لا توجد فصول بعد. انقر + لإضافة واحد.",
-    delete_subject_confirm: "حذف «{title}» وجميع فصوله؟",
+    delete_subject_confirm: "حذف «{title}» وجميع فصولها؟",
     delete_chapter_confirm: "حذف «{title}»؟",
     upload_for_subject: "ارفع فصلك التالي إلى {title}",
 
@@ -379,14 +379,14 @@ const I18N = {
     toast_copied_short: "نُسخ",
     toast_saved: "محفوظ ★",
     toast_removed: "أُزيل",
-    toast_subject_required: "اسم الموضوع مطلوب",
-    toast_subject_create_failed: "تعذّر إنشاء الموضوع",
+    toast_subject_required: "اسم المادة مطلوب",
+    toast_subject_create_failed: "تعذّر إنشاء المادة",
 
     err_title: "حدث خطأ ما",
     err_unknown: "خطأ غير معروف",
     err_no_reels: "لم يتم إنشاء ريلز",
     err_upload_failed: "فشل الرفع",
-    err_type_first: "اكتب اسم الموضوع أولاً",
+    err_type_first: "اكتب اسم المادة أولاً",
     // Format / podcast / surprise
     label_format: "الصيغة",
     format_solo: "🎤 صوت واحد",
@@ -394,7 +394,7 @@ const I18N = {
     voice_a_suffix: " أ",
     surprise_toast: "🎲 إعدادات عشوائية",
     tap_to_start: "انقر للبدء",
-    nav_home: "الرئيسية",
+    nav_home: "إنشاء",
     profile_name_ph: "الاسم الظاهر",
     profile_saved: "تم حفظ الملف الشخصي",
     profile_avatar_too_big: "يجب أن تكون الصورة أقل من 5 ميجابايت",
@@ -417,7 +417,7 @@ const I18N = {
     auth_back_to_signin: "لديك حساب؟ سجّل دخول",
     auth_signing_in: "جارٍ تسجيل الدخول…",
     auth_creating: "جارٍ إنشاء الحساب…",
-    tab_subjects: "المواضيع",
+    tab_subjects: "المواد",
     tab_saved: "الريلز المحفوظة",
   },
 };
@@ -1585,11 +1585,16 @@ async function speakReel(reelEl, idx) {
 
   // Build chunk timing once metadata loads
   let chunkData = null;
-  // Caption timing offset. Edge TTS MP3 files often include a tiny
-  // (≈ 80–120 ms) silence at the head, so karaoke captions feel a bit
-  // late vs the voice. Shift caption transitions slightly earlier so
-  // they line up with the actual speech, not the file start.
-  const CAPTION_LEAD_S = 0.18;
+  // Caption timing offset — depends on the audio format:
+  //   • MP3 (Edge TTS / Google Translate TTS) tends to carry an ~80–120 ms
+  //     silence at the head, so we shift captions forward by 180 ms to
+  //     compensate.
+  //   • WAV (Gemini Flash TTS, Google Cloud TTS) starts speech immediately,
+  //     so any lead at all makes captions race ahead of the voice — which
+  //     is exactly the "voice can't keep up with subs" symptom users saw
+  //     after Gemini became the primary provider.
+  const _isMp3 = /\.mp3(\?|$)/i.test(audioUrl);
+  const CAPTION_LEAD_S = _isMp3 ? 0.18 : 0.04;
 
   function buildTiming() {
     const duration = audio.duration || estimateDuration(reel.narration);
@@ -3511,6 +3516,13 @@ const chapterTitleInput = document.getElementById("chapterTitleInput");
 
 async function refreshSubjectChips() {
   if (!subjectChipsEl) return;
+  // "+ New subject" chip was removed from the upload screen — clear any
+  // legacy "__new" value persisted from earlier sessions so we don't show
+  // an orphan custom-input the user can't dismiss.
+  if (settings.subject === "__new") {
+    settings.subject = "";
+    saveSettings();
+  }
   const subjects = await fetchSubjects();
   // Keep the first two static chips (Don't save, + New)
   subjectChipsEl.querySelectorAll(".cu-chip[data-server='1']").forEach((c) => c.remove());

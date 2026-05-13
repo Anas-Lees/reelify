@@ -2176,8 +2176,14 @@ body[data-ui-theme="glass"]::before {
    animated mesh, the way iOS 26 sheets work. No rounded corners, no border,
    no shadow — the gradient mesh IS the page. */
 body[data-ui-theme="glass"] #upload-screen.active {
-  align-items: stretch;
+  /* keep flex-start so the card sits at the top of the screen and the
+     overflow can scroll naturally as the customize panel expands —
+     `align-items: stretch` was forcing the card to viewport height
+     and clipping content past the visible area. */
+  align-items: flex-start;
   padding: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 body[data-ui-theme="glass"] .upload-card {
   background: transparent !important;
@@ -2188,6 +2194,8 @@ body[data-ui-theme="glass"] .upload-card {
   box-shadow: none !important;
   max-width: none;
   width: 100%;
+  /* min-height keeps the mesh visible on short content; remove the cap so
+     long content (Style expanded) can grow past 100dvh and scroll. */
   min-height: 100dvh;
   padding: max(54px, calc(env(safe-area-inset-top, 0) + 54px)) 24px max(28px, env(safe-area-inset-bottom, 0));
 }
