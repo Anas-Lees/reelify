@@ -1585,25 +1585,34 @@ async function speakReel(reelEl, idx) {
 
   // Build chunk timing once metadata loads
   let chunkData = null;
-  // Caption timing offset — depends on the audio format:
-  //   • MP3 (Edge TTS / Google Translate TTS) tends to carry an ~80–120 ms
-  //     silence at the head, so we shift captions forward by 180 ms to
-  //     compensate.
-  //   • WAV (Gemini Flash TTS, Google Cloud TTS) starts speech immediately,
-  //     so any lead at all makes captions race ahead of the voice — which
-  //     is exactly the "voice can't keep up with subs" symptom users saw
-  //     after Gemini became the primary provider.
-  const _isMp3 = /\.mp3(\?|$)/i.test(audioUrl);
-  const CAPTION_LEAD_S = _isMp3 ? 0.18 : 0.04;
+  // Captions follow audio.currentTime exactly — no lead. Any anticipation
+  // raced past the voice on a regular basis. If you ever bring this back
+  // for MP3 leading-silence comp, make it negative (delay), not positive.
+  const CAPTION_LEAD_S = 0;
+
+  // Per-word duration weight. Pure char count was over-running the voice
+  // because it ignored the pauses at punctuation — voices linger ~250 ms
+  // after "." / "!" / "?" and ~150 ms after "," / ":" / ";". Adding those
+  // as virtual chars to the trailing-punctuation word stretches its slot
+  // in the timing model and keeps the lit word on screen during the pause.
+  function wordWeight(text) {
+    const t = String(text || "");
+    let bonus = 0;
+    const last = t.slice(-1);
+    if (last === "." || last === "!" || last === "?") bonus = 5;
+    else if (last === "," || last === ":" || last === ";") bonus = 3;
+    else if (last === "—" || last === "…") bonus = 4;
+    return Math.max(1, t.length) + bonus;
+  }
 
   function buildTiming() {
     const duration = audio.duration || estimateDuration(reel.narration);
-    const totalChars = allWordEls.reduce((s, el) => s + Math.max(1, el.textContent.length), 0) || 1;
+    const totalWeight = allWordEls.reduce((s, el) => s + wordWeight(el.textContent), 0) || 1;
     let cum = 0;
     const wordTimes = allWordEls.map((el) => {
-      const start = (cum / totalChars) * duration;
-      cum += Math.max(1, el.textContent.length);
-      const end = (cum / totalChars) * duration;
+      const start = (cum / totalWeight) * duration;
+      cum += wordWeight(el.textContent);
+      const end = (cum / totalWeight) * duration;
       return { el, start, end };
     });
     let wIdx = 0;
